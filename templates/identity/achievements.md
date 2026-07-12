@@ -1,6 +1,6 @@
 # Achievements
 
-<!-- List concrete, quantifiable achievements. One per line/section. These are the raw material resume-agent and cover-letter-agent draw from — never invent entries beyond what's listed here. -->
+<!-- List concrete, quantifiable achievements. One per line/section. This is the raw material identity-agent draws from for resumes, cover letters, and live answers — never invent entries beyond what's listed here. -->
 
 -
 

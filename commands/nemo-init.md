@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Edit, Glob, Task
 
 # /nemo:init — Build Professional Identity
 
-Invoke the `identity-agent` (see `agents/identity-agent.md`) to run this flow. This command must complete before any other NemoHire command produces high-quality output — job ranking, resumes, cover letters, and screening answers all read from `.claude/nemohire/identity/`.
+Invoke the `identity-agent` (see `agents/identity-agent.md`) to run this flow. This command must complete before any other NemoHire command produces high-quality output — `/nemo:apply`'s resume tailoring, cover letters, and live answers all read from `.claude/nemohire/identity/`.
 
 ## Behavior
 
@@ -18,7 +18,7 @@ Invoke the `identity-agent` (see `agents/identity-agent.md`) to run this flow. T
    - Salary: currency, minimum, target, ideal, negotiable (yes/no), notes. Explicitly ask: "Should salary expectations be a fixed range for every job, or flexible — matching whatever the job posting states and settling on the midpoint?" Store the answer as a rule, not just a number.
    - Work authorization: countries authorized to work in, visa sponsorship needs
 3. **Communication analysis.** If the user pastes writing samples (emails, LinkedIn posts, past cover letters) or answers a few short prompts, analyze tone, vocabulary level, confidence, sentence rhythm, and preferred style. If no samples are given, infer style conservatively from the interview answers and flag it as a low-confidence default the user can correct later.
-4. **Interview library.** Draft reusable first-person answers for: tell me about yourself, why this company, why this role, strengths, weaknesses, a leadership example, a conflict example, and the biggest achievement. Mark these as drafts — they get refined per-job during `/nemo:prepare`.
+4. **Interview library.** Draft reusable first-person answers for: tell me about yourself, why this company, why this role, strengths, weaknesses, a leadership example, a conflict example, and the biggest achievement. Mark these as drafts — `identity-agent` refines them per-job, live, during `/nemo:apply`.
 5. **Write files.** Populate every file under `.claude/nemohire/identity/` (see `templates/identity/` for the exact schema of each file: profile.md, experience.md, achievements.md, skills.md, communication-style.md, writing-style.md, salary-preferences.md, job-preferences.md, company-preferences.md, location-preferences.md, work-authorisation.md, documents.md, interview-library.md, memory.md). Also create `.claude/nemohire/config.md` from `templates/tracker/config.md` if it does not exist.
 6. **Confirm.** Show a short summary of what was captured and where it lives. Do not dump full file contents back at the user unless asked.
 

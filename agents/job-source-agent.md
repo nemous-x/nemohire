@@ -9,7 +9,7 @@ description: >
   Context: User wants jobs from a specific board.
   user: "/nemo:source https://boards.example.com --keywords 'staff engineer' --location remote"
   assistant: "Launching job-source-agent to browse the board and extract matching postings."
-  <commentary>Browsing + extraction, no reasoning about fit — that's job-ranking-agent's job.</commentary>
+  <commentary>Browsing + extraction, no reasoning about fit — jobs go straight to /nemo:apply, which is where identity-agent judges fit per posting.</commentary>
   </example>
 model: haiku
 tools: Read, Write, Glob, WebFetch, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__find

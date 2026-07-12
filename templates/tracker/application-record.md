@@ -1,6 +1,6 @@
 # Application Record — {{Company}} / {{Role}}
 
-Permanent record of exactly what was submitted for this application. Written by `memory-agent` at the end of `/nemo:apply`, before the job folder moves from `jobs/prepared/` to `jobs/applied/`. This is a full copy, not a pointer — it must stand on its own even if `jobs/prepared/<company>-<role>/` is later cleaned up.
+Permanent record of exactly what was submitted for this application. Written by `memory-agent` at the end of `/nemo:apply`, alongside `resume.md` and `cover-letter.md` in the same `jobs/applied/<company>-<role>/` folder. This is a full copy, not a pointer — it stands on its own.
 
 ## Summary
 - **Company:**
@@ -19,9 +19,8 @@ Permanent record of exactly what was submitted for this application. Written by 
 <!-- Full content of the cover letter actually uploaded/submitted, if one was required -->
 
 ## Questions and answers
-<!-- Every question the live application asked and the exact answer submitted, in order.
-     Include both questions already covered in jobs/prepared/<company>-<role>/screening-answers.md
-     and any new question that only appeared live on the form. -->
+<!-- Every question the live application asked and the exact answer submitted, in order,
+     as answered live by identity-agent. -->
 
 | Question | Answer submitted |
 |---|---|

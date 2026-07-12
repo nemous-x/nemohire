@@ -27,8 +27,7 @@
 - [ ] `/nemo:init` completed — identity files are no longer placeholders
 - [ ] `/nemo:init-tracker` completed — tracker backend chosen and created
 - [ ] At least one `/nemo:source` run with real target sites/keywords
-- [ ] Reviewed `/nemo:rank` output before running `/nemo:prepare` on anything
-- [ ] Reviewed a `/nemo:prepare` output once manually before trusting `/nemo:apply` to run unattended
+- [ ] Watched a `/nemo:apply` run closely on one job before trusting it to run unattended on several
 
 ## Uninstalling
 

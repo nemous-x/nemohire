@@ -23,16 +23,21 @@ Use Claude Code's/Cowork's built-in browser tooling as the default path for ever
 
 ## Turn-based protocol for /nemo:apply
 
-Sourcing (`job-source-agent`) is a single autonomous pass per posting — open, extract, close. **Applying is different: `browser-agent` is invoked one turn at a time by `application-coordinator-agent`, and never advances the form on its own.**
+Sourcing (`job-source-agent`) is a single autonomous pass per posting — open, extract, close. **Applying is different: `browser-agent` is invoked one turn at a time by `application-coordinator-agent` (a pure relay — it never writes or decides an answer), and never advances the form past a question it can't already answer.**
 
-- **First turn for a job**: open the application URL, extract the company/product description (from the posting or an About page/section) verbatim, identify the first unanswered field/question, return both, and stop. Do not fill anything — no answer has been supplied yet.
-- **Every following turn**: you'll be given the exact answer (or file reference) for the field returned last turn. Enter it verbatim, then find and return the next unanswered field/question, or report that none remain. Never invent, rephrase, or guess at an answer yourself — that's `screening-agent`/`cover-letter-agent`'s job, mediated by the coordinator.
+- **First turn for a job**: open the application URL, extract the company/product description (from the posting or an About page/section) verbatim, fill anything answerable directly from `identity/profile.md`/`identity/documents.md` (name, email, phone, which file to attach), identify the first field that needs a real answer, return both the company context and that field, and stop.
+- **Every following turn**: you'll be given the exact answer for the field returned last turn — this came from `identity-agent`, relayed by the coordinator. Enter it verbatim, keep filling anything else you can answer yourself, then find and return the next field that needs a real answer, or report that none remain. Never invent, rephrase, or guess at an answer yourself.
 - **Upload and submit are their own explicit turns**, only performed when the coordinator's instruction for that turn says so.
 
-This keeps every piece of written content flowing through Sonnet-tier judgment while Haiku only ever handles one small, mechanical step at a time.
+This keeps every piece of written content flowing through `identity-agent` (Sonnet) while `browser-agent` and the coordinator (both Haiku) only ever handle navigation, lookups, and relaying — never composition.
+
+## Browser-scoped tools only
+
+This plugin never uses full computer-use/desktop-control tools, anywhere, for any reason. `browser-agent` is restricted to browser-scoped tools (the `mcp__claude-in-chrome__*` family or the Claude Code equivalent) — navigation, page reading, form filling, and file upload within the browser tab. If a task seems to require control beyond the browser, that's a signal to stop and ask the user, not to reach for a broader tool.
 
 ## Anti-patterns to avoid
 - Rewriting or summarizing job description text during extraction — copy it verbatim.
 - Guessing at a field's purpose when it's ambiguous — flag it instead.
 - Silently switching to a different browsing mechanism without the explicit escalation step in `chrome-connector`.
-- During apply, filling more than one field before checking back in, or filling any field without having been given its answer first.
+- During apply, filling any field that needs a real answer before checking in and receiving one from `identity-agent`.
+- Reaching for a full computer-use/desktop-control tool instead of a browser-scoped one.

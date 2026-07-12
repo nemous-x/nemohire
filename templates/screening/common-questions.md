@@ -1,7 +1,9 @@
 # Common Screening Questions
 
-<!-- Reference list used as a starting point by screening-agent; actual answers live per-job in
-     jobs/prepared/<company>-<role>/screening-answers.md, adapted from identity/interview-library.md -->
+<!-- Reference list used as a starting point by identity-agent during live /nemo:apply answering,
+     adapted per question from identity/interview-library.md and the company context browser-agent
+     surfaces. Answers are saved into jobs/applied/<company>-<role>/application-record.md, not
+     drafted ahead of time. -->
 
 - Tell me about yourself.
 - Why do you want to work here?
