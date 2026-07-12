@@ -17,7 +17,12 @@ Orchestrated end-to-end by `application-coordinator-agent` (Sonnet). **Applicati
 5. **Uploads.** `upload-agent` attaches resume, cover letter, and portfolio files to the detected upload fields (per `skills/file-upload/SKILL.md`).
 6. **Submission summary.** Shown to the user before anything is submitted: company, role, every question asked and the exact answer given, every file uploaded, and any flagged/ambiguous field.
 7. **Submit turn.** Only after the summary is shown, the coordinator dispatches browser-agent's dedicated submit turn.
-8. **Tracker + cleanup.** `tracker-agent` sets status "Applied" with the date (ISO-8601) and job posting URL; browser-agent closes the tab(s); the job folder moves from `prepared/` to `applied/`.
+8. **Save the full application record.** Before the job is considered done, `memory-agent` writes `jobs/applied/<company>-<role>/application-record.md`: the exact resume and cover letter content submitted, every question asked and the exact answer given (including anything that only came up live on the form), the company context gathered on turn 0, every file uploaded and to which field, and the application timestamp/URL. This is a full record, not just a status change — it's what lets you look back later at exactly what was said to a given company.
+9. **Tracker + cleanup.** `tracker-agent` sets status "Applied" with the date (ISO-8601) and job posting URL; browser-agent closes the tab(s); the job folder moves from `prepared/` to `applied/` only once its application record exists.
+
+## Human voice, always
+
+Every answer that reaches the live form — whether drafted by `screening-agent`/`cover-letter-agent` or supplied directly by the coordinator for a known field — is written in the user's own first-person voice, as the candidate. Nothing submitted may disclose, hint at, or reference AI involvement, and nothing should read like a template or break character. `qa-agent` treats a violation of this as a hard failure, not a style note. See `skills/document-generation/SKILL.md`.
 
 This repeats **per job, sequentially** — the whole loop above runs to completion (or a stop) for one job before the next job starts.
 

@@ -34,12 +34,14 @@ Every capability is split across four layers so it stays maintainable and cheap 
 │   ├── sourced/      # raw extracted postings
 │   ├── ranked/        # scored + justified
 │   ├── prepared/       # per-job resume, cover letter, screening answers, research
-│   ├── applied/        # submitted
+│   ├── applied/        # submitted — each job's folder holds a full application-record.md
 │   └── rejected/
 ├── tracker/          # Notion database link or local markdown table
 ├── emails/           # last-sync watermark
 └── config.md
 ```
+
+Every job in `jobs/applied/<company>-<role>/` carries a complete `application-record.md` (schema in `templates/tracker/application-record.md`): the exact resume and cover letter content submitted, every question the live form asked and the exact answer given (including anything that only came up live, not just what was pre-drafted), the company context gathered, files uploaded, and the timestamp/URL. It's a full copy, not a pointer — you can look back at exactly what was said to any company, even after `jobs/prepared/` is cleaned up.
 
 ## Model routing
 
@@ -66,6 +68,10 @@ NemoHire always tries the built-in browser tooling first (`skills/browser-naviga
 4. Repeat until no fields remain, then uploads, then the submission summary, then submit.
 
 Haiku never invents content and Sonnet never touches the page directly — the loop is the boundary between them.
+
+### Human voice, always
+
+Every piece of content that ends up in front of an employer — resume, cover letter, screening answer, any live-form field — is written strictly in the user's own first-person voice, as the candidate. It never discloses, hints at, or references AI involvement, and it never breaks character with disclaimers or meta-commentary. This applies to `resume-agent`, `cover-letter-agent`, `screening-agent`, `identity-agent`'s interview-library drafts, and anything `application-coordinator-agent` answers directly. `qa-agent` treats any violation as a hard failure, not a style nitpick.
 
 ## Getting started
 

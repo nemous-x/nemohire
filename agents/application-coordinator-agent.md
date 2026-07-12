@@ -29,15 +29,25 @@ For each job, run this loop:
 2. **Read the company context.** Use it (plus anything already in `jobs/prepared/<company>-<role>/company-research.md`) to ground every answer you produce for this job, especially "why this company" style questions.
 3. **Answer loop — repeat until browser-agent reports no more fields:**
    - Look at the field/question browser-agent just returned.
-   - **Known/standard field** (name, email, phone, resume upload, a question already answered verbatim in `jobs/prepared/<company>-<role>/screening-answers.md` or `cover-letter.md`): answer directly from those files — no need to spin up another agent for something already solved.
+   - **Known/standard field** (name, email, phone, resume upload, a question already answered verbatim in `jobs/prepared/<company>-<role>/screening-answers.md` or `cover-letter.md`): answer directly from those files — no need to spin up another agent for something already solved. Any text you supply directly must still follow the human-voice rule below.
    - **New or unmatched free-text question**: dispatch `screening-agent` (Task) with the exact question text plus the company context from step 2, and use its grounded answer. For a cover-letter-shaped question, use `cover-letter-agent` instead.
    - **Field needing information not present anywhere in `identity/` or `jobs/prepared/`**: stop and ask the user rather than guessing — do not pass a fabricated answer to browser-agent.
    - Dispatch `browser-agent` again (Task) for the next turn: "fill the field you just returned with this exact answer, then return the next unanswered field or report none remain."
-   - Track every question/answer pair you produce — you'll need the full list for the submission summary.
+   - Track every question/answer pair you produce, verbatim — you'll need the full list both for the submission summary and for the permanent application record (see step 7).
 4. **Uploads.** Once browser-agent reports no more question fields (only uploads/review/submit remain), dispatch `upload-agent` to attach resume, cover letter, and portfolio files to the detected upload fields.
 5. **Submission summary.** Show the user: company, role, every question asked and the exact answer submitted for it, every file uploaded, and any field flagged as important or ambiguous along the way (legal attestations, salary fields, start-date commitments). This is mandatory, visible output — even in an unattended/batch run — produced before the submit turn fires.
 6. **Submit.** Dispatch `browser-agent` for the submit turn only after the summary has been shown.
-7. **Tracker + cleanup.** Update the tracker (`tracker-agent`) — status "Applied", date applied (ISO-8601), job posting URL. Dispatch `browser-agent` to close the tab(s) for this job. Move the job's folder reference from `prepared` to `applied`.
+7. **Save the full application record, then update the tracker and clean up.** Before (or as part of) moving the job out of `prepared/`, write `jobs/applied/<company>-<role>/application-record.md` (via `memory-agent`) capturing everything actually used in this submission — not just a status change:
+   - the exact resume and cover letter content submitted (copy of the final files, not just a pointer)
+   - every question asked on the live form and the exact answer submitted for it, including any question that only appeared live and wasn't in the original prepared screening-answers.md
+   - the company context browser-agent extracted on turn 0
+   - every file uploaded and to which field
+   - date/time applied and the application URL
+
+   Then dispatch `tracker-agent` — status "Applied", date applied (ISO-8601), job posting URL — and `browser-agent` to close the tab(s) for this job. Only after the record is saved does the job's folder move from `prepared/` to `applied/`.
+
+## Human-voice rule
+Per `skills/document-generation/SKILL.md`: any answer you supply directly (not via a delegated agent) must be written in the user's first-person voice, as the candidate, with no disclosure of or reference to AI involvement and no meta-commentary. This applies to every answer that ends up on the live form, whether you wrote it or delegated it.
 
 ## Failure handling
 

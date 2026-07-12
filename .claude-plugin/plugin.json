@@ -1,6 +1,6 @@
 {
   "name": "nemohire",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI-powered hiring copilot: builds a persistent professional identity, sources and ranks jobs, prepares tailored application materials, applies on your behalf via browser automation, tracks every application, and syncs hiring emails.",
   "author": {
     "name": "Nemous"
