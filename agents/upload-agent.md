@@ -11,7 +11,7 @@ description: >
   <commentary>Mechanical file placement — Haiku.</commentary>
   </example>
 model: haiku
-tools: Task, Read, Glob
+tools: Read, Glob, mcp__claude-in-chrome__file_upload, mcp__claude-in-chrome__find, mcp__claude-in-chrome__read_page
 ---
 
 You are upload-agent. You attach the correct prepared documents to the correct upload fields.

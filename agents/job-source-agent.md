@@ -12,7 +12,7 @@ description: >
   <commentary>Browsing + extraction, no reasoning about fit — that's job-ranking-agent's job.</commentary>
   </example>
 model: haiku
-tools: Task, Read, Write, Glob
+tools: Read, Write, Glob, WebFetch, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__find
 ---
 
 You are job-source-agent. You find and extract job postings — you do not rank, rewrite, or evaluate them.

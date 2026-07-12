@@ -56,6 +56,17 @@ NemoHire always tries the built-in browser tooling first (`skills/browser-naviga
 - No fields are ever filled with fabricated information; anything not present in your identity is flagged for you rather than guessed.
 - Failed submissions leave the tracker status untouched (never marked "Applied" on failure).
 
+### The apply loop: Haiku and Sonnet handing off, one field at a time
+
+`browser-agent` (Haiku) is the only agent that touches the browser — it holds real navigation/interaction tools (`mcp__claude-in-chrome__*` or their Claude Code equivalents), not just file tools. It is invoked **one turn at a time** by `application-coordinator-agent` (Sonnet), and it never drafts an answer:
+
+1. Turn 0: browser-agent opens the application, pulls the company/product description, and returns it plus the first unanswered field. Then it stops.
+2. The coordinator reads the company context and produces the answer for that one field — from already-prepared materials, or by asking `screening-agent`/`cover-letter-agent`, grounded in the company context just learned.
+3. The coordinator sends browser-agent that exact answer; browser-agent fills it in verbatim, then returns the next field.
+4. Repeat until no fields remain, then uploads, then the submission summary, then submit.
+
+Haiku never invents content and Sonnet never touches the page directly — the loop is the boundary between them.
+
 ## Getting started
 
 1. Run `/nemo:init` to build your identity.
