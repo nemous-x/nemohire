@@ -12,6 +12,7 @@ Delegate to the `tracker-agent`.
 
 1. **Ask** (unless given as an argument): "Where should applications be tracked — Notion or local markdown?"
 2. **If Notion:** confirm a Notion connector is available. If not, tell the user to connect Notion first and stop. Otherwise create a database titled "📋 Job Applications" with exactly these fields:
+   - Job ID (text) — matches the id in `.claude/nemohire/jobs/jobs.json` and the `jobs/applied/<id>/` folder name
    - Role (title)
    - Company (text)
    - Date Applied (date, ISO-8601)

@@ -1,7 +1,7 @@
 {
   "name": "nemohire",
-  "version": "0.4.0",
-  "description": "AI-powered hiring copilot: builds a persistent professional identity, sources jobs, and applies to them live — one question at a time, in your own voice — via a strict Haiku-coordinator/Sonnet-identity split, tracking every application and syncing hiring emails.",
+  "version": "0.5.0",
+  "description": "AI-powered hiring copilot: builds a persistent professional identity, sources jobs (or takes a jobs file directly), and applies to them live — one question at a time, in your own voice — via an id-keyed job cache that keeps every agent exchange minimal, tracking every application and syncing hiring emails.",
   "author": {
     "name": "Nemous"
   },

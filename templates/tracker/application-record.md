@@ -1,8 +1,9 @@
 # Application Record — {{Company}} / {{Role}}
 
-Permanent record of exactly what was submitted for this application. Written by `memory-agent` at the end of `/nemo:apply`, alongside `resume.md` and `cover-letter.md` in the same `jobs/applied/<company>-<role>/` folder. This is a full copy, not a pointer — it stands on its own.
+Permanent record of exactly what was submitted for this application. Written by `memory-agent` at the end of `/nemo:apply`, alongside `resume.md` and `cover-letter.md` in the same `jobs/applied/<id>/` folder. This is a full copy, not a pointer — it stands on its own.
 
 ## Summary
+- **Job id:**
 - **Company:**
 - **Role:**
 - **Applied on (ISO-8601):**

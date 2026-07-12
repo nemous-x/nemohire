@@ -11,9 +11,9 @@ description: >
 ## Steps
 
 1. Identify every upload-type field on the current page, its label, and accepted file types (PDF, DOCX, etc. — read `accept` attributes or visible instructions if available).
-2. Match fields to files by purpose, not just by order on the page:
-   - Resume/CV field → `jobs/applied/<company>-<role>/resume.*` (written there by `identity-agent` at the start of this job's apply attempt)
-   - Cover letter field → `jobs/applied/<company>-<role>/cover-letter.*`
+2. Match fields to files by purpose, not just by order on the page (`<id>` is the job's unique id, not a company/role slug — see `templates/tracker/jobs-schema.md`):
+   - Resume/CV field → `jobs/applied/<id>/resume.*` (written there by `identity-agent` at the start of this job's apply attempt)
+   - Cover letter field → `jobs/applied/<id>/cover-letter.*`
    - Portfolio/work-samples field → entries listed under `identity/documents.md`
 3. If the field's accepted format doesn't match what's available (e.g. field wants `.pdf` but only a `.md` version exists), flag this rather than uploading a mismatched or broken file. Note it in the output so the calling agent can convert first or ask the user.
 4. Confirm each upload succeeded (most ATS forms show a filename or checkmark after upload) before moving to the next field.

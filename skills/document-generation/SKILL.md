@@ -24,8 +24,11 @@ Every piece of content that goes into an application — cover letter, resume, l
 
 ## Structure
 - Resumes: reorder and re-emphasize existing `identity/experience.md` / `identity/achievements.md` content to mirror the target posting's language and priorities. Use `templates/resumes/tailoring-checklist.md` as a guide.
-- Cover letters: use `templates/cover-letter/` as a structural starting point, not a fill-in-the-blank script. Reference specifics from the actual posting and any company context gathered live by `browser-agent`.
-- Live answers: start from `identity/interview-library.md` for standard questions; adapt rather than reuse verbatim, grounded in the specific company context and job posting. Respect any stated length/character limit.
+- Cover letters: use `templates/cover-letter/` as a structural starting point, not a fill-in-the-blank script. Reference specifics from the actual posting.
+- Live answers: start from `identity/interview-library.md` for standard questions; adapt rather than reuse verbatim.
+
+## Reading context — always by id, never from the payload
+You are handed a job `id` and, for live answers, the exact question — nothing more. Read the posting from `.claude/nemohire/jobs/jobs.json` and the company/product context from `.claude/nemohire/jobs/cache/<id>/company-context.md` yourself, every time you need them. Never expect the coordinator to have included this text in what it sent you, and never ask it to relay more than the id plus the question — that defeats the reason the cache exists. See `templates/tracker/jobs-schema.md`.
 
 ## Quality bar
 Before considering anything ready to submit: no leftover template placeholders, no generic filler sentences that could apply to any company, and no claims that don't trace back to identity. `identity-agent` self-checks against this bar and the human-voice rule before returning any content — there's no separate QA pass.

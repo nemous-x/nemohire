@@ -16,8 +16,13 @@ This file is created by `/nemo:init` under `.claude/nemohire/config.md` in the u
 ## Browser scope
 - Only browser-scoped tools are ever used (the built-in browser tooling, or the Chrome Connector fallback). Full computer-use/desktop-control tools are never used anywhere in this plugin.
 
+## Minimal-communication rule
+- Every job has a stable, unique id the moment it enters `jobs.json`. Large text (job postings, company/product context) is written once, to a file keyed by that id, and read directly by whichever agent needs it — never re-sent between agents on every turn. See `templates/tracker/jobs-schema.md`.
+
 ## Paths
 - Identity: `.claude/nemohire/identity/`
-- Jobs: `.claude/nemohire/jobs/{sourced,applied,rejected}/`
+- Jobs list: `.claude/nemohire/jobs/jobs.json` (schema: `templates/tracker/jobs-schema.md`) — sourced and manually-imported jobs alike, tracked by `status`
+- Per-job cache: `.claude/nemohire/jobs/cache/<id>/company-context.md`
+- Applied jobs: `.claude/nemohire/jobs/applied/<id>/` (resume.md, cover-letter.md, application-record.md)
 - Tracker: `.claude/nemohire/tracker/`
 - Emails: `.claude/nemohire/emails/`

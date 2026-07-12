@@ -25,11 +25,11 @@ Use Claude Code's/Cowork's built-in browser tooling as the default path for ever
 
 Sourcing (`job-source-agent`) is a single autonomous pass per posting — open, extract, close. **Applying is different: `browser-agent` is invoked one turn at a time by `application-coordinator-agent` (a pure relay — it never writes or decides an answer), and never advances the form past a question it can't already answer.**
 
-- **First turn for a job**: open the application URL, extract the company/product description (from the posting or an About page/section) verbatim, fill anything answerable directly from `identity/profile.md`/`identity/documents.md` (name, email, phone, which file to attach), identify the first field that needs a real answer, return both the company context and that field, and stop.
-- **Every following turn**: you'll be given the exact answer for the field returned last turn — this came from `identity-agent`, relayed by the coordinator. Enter it verbatim, keep filling anything else you can answer yourself, then find and return the next field that needs a real answer, or report that none remain. Never invent, rephrase, or guess at an answer yourself.
+- **First turn for a job**: look up the application URL from `jobs.json` by `id` (the coordinator gives you the id, not the URL or posting text). Open it, extract the company/product description (from the posting or an About page/section) verbatim and **write it straight to `jobs/cache/<id>/company-context.md` — never return this text**. Fill anything answerable directly from `identity/profile.md`/`identity/documents.md` (name, email, phone, which file to attach), identify the first field that needs a real answer, return a short confirmation plus that field, and stop.
+- **Every following turn**: you'll be given the exact answer for the field returned last turn — this came from `identity-agent`, relayed by the coordinator, who only ever passed it `{id, question}` to get it. Enter it verbatim, keep filling anything else you can answer yourself, then find and return the next field that needs a real answer, or report that none remain. Never invent, rephrase, or guess at an answer yourself.
 - **Upload and submit are their own explicit turns**, only performed when the coordinator's instruction for that turn says so.
 
-This keeps every piece of written content flowing through `identity-agent` (Sonnet) while `browser-agent` and the coordinator (both Haiku) only ever handle navigation, lookups, and relaying — never composition.
+This keeps every piece of written content flowing through `identity-agent` (Sonnet) while `browser-agent` and the coordinator (both Haiku) only ever handle navigation, lookups, and relaying — never composition, and never a large payload. See `templates/tracker/jobs-schema.md` for the full id/cache convention.
 
 ## Browser-scoped tools only
 
