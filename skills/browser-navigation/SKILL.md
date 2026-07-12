@@ -21,15 +21,14 @@ Use Claude Code's/Cowork's built-in browser tooling as the default path for ever
 4. If the page fails to load, returns an auth wall, shows a bot-detection/CAPTCHA challenge, or the built-in tool otherwise cannot retrieve real content — **stop**. Do not retry blindly and do not fall back to the Chrome Connector on your own. Report back that this specific site needs Chrome Connector permission, and let the calling command ask the user.
 5. Once extraction/navigation for a given job is complete, close the tab. Don't leave a trail of open tabs across a sourcing or apply run.
 
-## Turn-based protocol for /nemo:apply
+## Batch protocol for /nemo:apply
 
-Sourcing (`job-source-agent`) is a single autonomous pass per posting — open, extract, close. **Applying is different: `browser-agent` is invoked one turn at a time by `application-coordinator-agent` (a pure relay — it never writes or decides an answer), and never advances the form past a question it can't already answer.**
+Sourcing (`job-source-agent`) is a single autonomous pass per posting — open, extract, close. **Applying is different: `browser-agent` is dispatched by `application-coordinator-agent` (a pure relay — it never writes or decides an answer) just twice per job, not once per question.**
 
-- **First turn for a job**: look up the application URL from `jobs.json` by `id` (the coordinator gives you the id, not the URL or posting text). Open it, extract the company/product description (from the posting or an About page/section) verbatim and **write it straight to `jobs/cache/<id>/company-context.md` — never return this text**. Fill anything answerable directly from `identity/profile.md`/`identity/documents.md` (name, email, phone, which file to attach), identify the first field that needs a real answer, return a short confirmation plus that field, and stop.
-- **Every following turn**: you'll be given the exact answer for the field returned last turn — this came from `identity-agent`, relayed by the coordinator, who only ever passed it `{id, question}` to get it. Enter it verbatim, keep filling anything else you can answer yourself, then find and return the next field that needs a real answer, or report that none remain. Never invent, rephrase, or guess at an answer yourself.
-- **Upload and submit are their own explicit turns**, only performed when the coordinator's instruction for that turn says so.
+- **Dispatch 1 (extraction)**: the coordinator gives you the `id` it just minted for this job, plus the `application_url` directly — you don't read any source file for this, since the coordinator already extracted what it needed when it seeded `jobs/cache/<id>/posting.md`. Open the URL, extract the company/product description (from the posting or an About page/section) verbatim and **write it straight to `jobs/cache/<id>/company-context.md` — never return this text**. Fill anything answerable directly from `identity/profile.md`/`identity/documents.md` (name, email, phone, which file to attach). Extract every remaining field that needs a real answer and **write all of them to `jobs/cache/<id>/questions.md` in one pass** — do not return the question text itself, only a count.
+- **Dispatch 2 (fill + submit)**: by now `identity-agent` has answered every question directly in `questions.md`. Read that file yourself. If any answer is flagged `[NEEDS INPUT: ...]`, stop and report exactly which question(s) need the user — don't fill the rest and submit partially. Otherwise, fill every field on the page from the file (matching by the question text you recorded), attach the prepared files, and **submit directly** — no summary shown, no confirmation waited on.
 
-This keeps every piece of written content flowing through `identity-agent` (Sonnet) while `browser-agent` and the coordinator (both Haiku) only ever handle navigation, lookups, and relaying — never composition, and never a large payload. See `templates/tracker/jobs-schema.md` for the full id/cache convention.
+This keeps every piece of written content flowing through `identity-agent` (Sonnet) while `browser-agent` and the coordinator (both Haiku) only ever handle navigation, lookups, and relaying — never composition, and never a large payload, and never more than two dispatches per job for the whole Q&A-and-submit sequence. See `templates/tracker/job-cache-schema.md` for the full id/cache convention, including the `questions.md` format.
 
 ## Browser-scoped tools only
 
@@ -39,5 +38,5 @@ This plugin never uses full computer-use/desktop-control tools, anywhere, for an
 - Rewriting or summarizing job description text during extraction — copy it verbatim.
 - Guessing at a field's purpose when it's ambiguous — flag it instead.
 - Silently switching to a different browsing mechanism without the explicit escalation step in `chrome-connector`.
-- During apply, filling any field that needs a real answer before checking in and receiving one from `identity-agent`.
+- During apply, filling a real-question field with anything other than what's written in `questions.md`, or submitting while any answer is still flagged `[NEEDS INPUT: ...]`.
 - Reaching for a full computer-use/desktop-control tool instead of a browser-scoped one.

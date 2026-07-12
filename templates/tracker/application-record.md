@@ -14,14 +14,15 @@ Permanent record of exactly what was submitted for this application. Written by 
 <!-- The company/product description browser-agent extracted on turn 0, used to ground every answer below -->
 
 ## Resume submitted
-<!-- Full content of the resume actually uploaded/submitted, not just a file reference -->
+<!-- Full content of the resume actually uploaded/submitted. Note whether it was tailored per
+     job or the base resume used as-is (per identity/documents.md's "Tailor per job" setting) -->
 
 ## Cover letter submitted
-<!-- Full content of the cover letter actually uploaded/submitted, if one was required -->
+<!-- Full content of the cover letter actually uploaded/submitted -->
 
 ## Questions and answers
-<!-- Every question the live application asked and the exact answer submitted, in order,
-     as answered live by identity-agent. -->
+<!-- Copied from jobs/cache/<id>/questions.md once every question had a real answer (no
+     [NEEDS INPUT: ...] flags remaining) -->
 
 | Question | Answer submitted |
 |---|---|

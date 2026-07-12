@@ -1,54 +1,55 @@
 ---
-description: Apply to sourced (or externally supplied) jobs one at a time — tailors materials and answers questions live via a turn-based browser loop, then submits
-argument-hint: "[job-ids...] | --all-sourced | --jobs-file <path>"
+description: Apply to sourced (or externally supplied) jobs one at a time — prepares materials, answers every question in one batch pass via a shared file, then submits directly
+argument-hint: "[job selectors...] | --all | --jobs-file <path>"
 allowed-tools: Task, Read, Write, Glob
 ---
 
 # /nemo:apply — Apply to Jobs
 
-Orchestrated end-to-end by `application-coordinator-agent` (Haiku) — a pure relay that never writes, answers, or holds large text itself. **Applications are processed strictly sequentially — never in parallel.** There's no separate ranking or prep step: jobs go straight from `.claude/nemohire/jobs/jobs.json` to a live application.
+Orchestrated end-to-end by `application-coordinator-agent` (Haiku) — a pure relay that never writes, answers, or holds large text itself. **Applications are processed strictly sequentially — never in parallel.** There's no separate ranking or prep step. Requires a tracker (`/nemo:init-tracker`) — the very first thing this command does is ask the tracker which jobs are already applied to, so it needs to know which backend is active (read from `config.md`).
 
-## You don't need to have run `/nemo:source`
+## Any jobs file works — there's no schema link to `/nemo:source`
 
-If you already have job postings from somewhere else, pass `--jobs-file <path>` pointing at a JSON file (see `templates/tracker/jobs-schema.md` for the shape). `memory-agent` maps it onto the `jobs.json` schema, computes an id for anything missing one, marks it `source: "manual"`, and merges it in before the run starts — no need to go through `/nemo:source` at all.
+`--jobs-file <path>` accepts anything that roughly looks like a list of jobs: `.claude/nemohire/jobs/sourced.json` (from `/nemo:source`), a file you wrote by hand, an export from somewhere else. If `--jobs-file` isn't given, it defaults to `jobs/sourced.json`.
 
-## Every job has an id — and that id is the only thing that moves between agents
+## Ids are minted per apply-attempt, and questions travel through a file, not through Task payloads
 
-The moment a job is in `jobs.json`, it has a stable `id`. That id is the key efficiency mechanism in this flow: large text (the job posting, the company/product context) is written once and read by id — it is never re-transmitted between agents on every turn.
+The moment `application-coordinator-agent` is about to actually apply to a specific job, it mints a fresh id and writes `jobs/cache/<id>/posting.md` from whatever it found for that entry. From there:
 
-- **`browser-agent`** (Haiku, browser-scoped tools only — never full computer control): looks up the posting by id, navigates, writes the company/product description it extracts straight to `jobs/cache/<id>/company-context.md` itself, fills anything it can already answer itself from `identity/profile.md`/`identity/documents.md`, and surfaces every real question upward as just the question text.
-- **`identity-agent`** (Sonnet): the only agent that writes anything a human reads. It receives just `{id, question}` (or `{id, "prepare materials"}`) — nothing more — and reads the posting and cached company context itself, by id, before answering or writing. Always strictly in the user's own first-person voice, as the person, in plain human grammar, with zero AI disclosure.
-- **`application-coordinator-agent`** (Haiku): relays `{id, question}` to `identity-agent` and the resulting answer back to `browser-agent`. It never holds, inspects, or forwards the company context or posting text itself.
+- **`browser-agent`** (Haiku, browser-scoped tools only — never full computer control): given `{id, application_url}`, opens the application, writes the company/product description straight to `jobs/cache/<id>/company-context.md`, fills anything it can already answer itself from `identity/profile.md`/`identity/documents.md`, and writes **every remaining question** to `jobs/cache/<id>/questions.md` in one pass — reporting back only a count, never the questions themselves.
+- **`identity-agent`** (Sonnet): given just the `id`, reads `posting.md`, `company-context.md`, and `questions.md`, and writes an answer into `questions.md` for **every** question in one dispatch — not one dispatch per question. Always strictly in the user's own first-person voice, as the person, in plain human grammar, with zero AI disclosure. If it can't answer something, it writes `[NEEDS INPUT: ...]` instead of guessing.
+- **`browser-agent`** again: reads the now-answered `questions.md`, fills every field, uploads the prepared files, and **submits directly** — no summary shown, no user confirmation waited on. If anything in `questions.md` is still flagged `[NEEDS INPUT: ...]`, it stops and reports exactly what's missing instead of guessing or submitting incomplete.
+- **`application-coordinator-agent`** (Haiku): mints the id, seeds the posting cache, and dispatches the above in sequence. It never holds question text, answers, or company context itself — every one of those lives in a file, referenced only by id.
 
-## The loop, concretely
+## The flow, concretely
 
-1. **(Optional) Ingest external jobs.** If `--jobs-file` was given, `memory-agent` merges it into `jobs.json` first.
-2. **Prepare.** For the selected job's `id`, `identity-agent` tailors a resume and writes a cover letter (reading the posting itself by id), saving them into `jobs/applied/<id>/`.
-3. **Turn 0 — open + cache company context.** `browser-agent` opens the application (via `application_url` looked up by id), writes the company/product description to `jobs/cache/<id>/company-context.md` itself, fills anything it can answer itself, and returns just the first field it can't. It then stops.
-4. **Relay.** The coordinator forwards `{id, question}` — nothing else — to `identity-agent`.
-5. **Turn N — fill + fetch next.** The coordinator sends `browser-agent` identity-agent's exact answer; `browser-agent` fills it in verbatim, keeps filling anything else it can answer itself, and returns the next real question — or reports none remain.
-6. **Repeat** steps 4–5 until nothing's left.
-7. **Uploads.** `browser-agent` attaches the resume, cover letter, and any portfolio files from `jobs/applied/<id>/`.
-8. **Submission summary.** Shown before anything is submitted: company, role, every question asked and the exact answer given, every file uploaded, any flagged/ambiguous field.
-9. **Submit turn.** Only after the summary is shown.
-10. **Application record.** `memory-agent` writes `jobs/applied/<id>/application-record.md` and sets `jobs.json`'s entry to `status: "applied"`.
-11. **Tracker + cleanup.** `tracker-agent` sets status "Applied"; `browser-agent` closes the tab(s).
+1. **Read the jobs file.**
+2. **Skip already-applied jobs.** `tracker-agent` returns every application/posting URL already in the tracker; the coordinator removes any matching entry before doing anything else.
+3. **Let the user pick** which of the remaining entries to apply to (or use `--all` / explicit selectors).
+4. **Mint + seed.** For the job about to be applied to: mint a fresh `id`, write `jobs/cache/<id>/posting.md`.
+5. **Prepare materials.** `identity-agent` reads the cached posting, always writes a cover letter, and only tailors a resume if `identity/documents.md` says the user opted into per-job tailoring during `/nemo:init` — otherwise it copies the base resume in unchanged. Both saved to `jobs/applied/<id>/`.
+6. **Extract questions.** `browser-agent` opens the application, caches company context, fills what it can itself, writes every remaining question to `jobs/cache/<id>/questions.md`, and reports just a count.
+7. **Answer questions.** If there were any, `identity-agent` answers all of them in one pass, writing directly into `questions.md`.
+8. **Handle missing info.** If any answer is flagged `[NEEDS INPUT: ...]`, the coordinator stops and asks the user for just that — it doesn't let anything downstream guess.
+9. **Fill, upload, submit.** `browser-agent` fills every field from `questions.md`, uploads the documents, and submits — directly, without a pre-submit summary or confirmation step.
+10. **Application record.** `memory-agent` writes `jobs/applied/<id>/application-record.md`, compiled from the cache files and the materials.
+11. **Update the tracker, right away.** So the tracker (and the next run's already-applied filter) stays accurate even if the run stops partway through. `browser-agent` closes the tab(s).
 
 This repeats **per job, sequentially.**
 
 ## Browser strategy
 
-Try the built-in browser tooling first. If a site can't be accessed that way, **stop and ask the user for explicit permission** before switching to the Chrome Connector (`skills/chrome-connector/SKILL.md`) — decided once per site, never silently, and never per turn. **No agent in this flow ever uses full computer/desktop-control tools — only browser-scoped tools.**
+Try the built-in browser tooling first. If a site can't be accessed that way, **stop and ask the user for explicit permission** before switching to the Chrome Connector (`skills/chrome-connector/SKILL.md`) — decided once per site, never silently. **No agent in this flow ever uses full computer/desktop-control tools — only browser-scoped tools.**
 
 ## Safety and failure handling
 
-- `browser-agent` is never given a field to fill without an answer already in hand — if information is missing from `identity/` and the job posting, the coordinator pauses and asks the user instead of guessing.
-- If submission fails (validation error, site error, CAPTCHA loop), stop, report the exact failure, and leave the job's `jobs.json`/tracker status untouched.
-- The submission summary can never be skipped, even in a fully unattended run.
+- `browser-agent` never fills or submits a field it — or `identity-agent` — didn't have a real answer for; a `[NEEDS INPUT: ...]` flag always stops the run for that job rather than guessing.
+- If submission fails (validation error, site error, CAPTCHA loop), stop, report the exact failure, and leave the tracker untouched for that job.
+- There is no pre-submit summary or confirmation gate — submission happens as soon as every question has a real answer. Everything about the application (posting, company context, every question and answer, files uploaded) is preserved in `jobs/cache/<id>/` and `jobs/applied/<id>/application-record.md` for after-the-fact review.
 
 ## Human voice, always
 
-Everything that reaches the live form — resume, cover letter, every answer — is written strictly in the user's own first-person voice, as the candidate, in plain human grammar. Nothing may disclose, hint at, or reference AI involvement, and nothing should read like a template or break character. Only `identity-agent` produces this content; the coordinator and `browser-agent` never do. See `skills/document-generation/SKILL.md`.
+Everything that reaches the live form — resume (if tailored), cover letter, every answer — is written strictly in the user's own first-person voice, as the candidate, in plain human grammar. Nothing may disclose, hint at, or reference AI involvement. Only `identity-agent` produces this content. See `skills/document-generation/SKILL.md`.
 
 ## Model routing
-Haiku (`application-coordinator-agent`, `browser-agent`, `memory-agent`): sequencing, navigation, mechanical field-filling, uploads, submit, file I/O — zero content generation, zero large-payload relaying. Sonnet (`identity-agent`): every piece of written content and every judgment call, full stop.
+Haiku (`application-coordinator-agent`, `browser-agent`, `memory-agent`): sequencing, id minting, cache seeding, navigation, extraction, filling, uploads, submit, file I/O — zero content generation. Sonnet (`identity-agent`): every piece of written content, produced in batches of one dispatch per job stage, not per question.

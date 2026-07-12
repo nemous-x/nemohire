@@ -1,6 +1,6 @@
 # NemoHire
 
-An AI-powered hiring copilot for Claude Code and Cowork. NemoHire builds a persistent professional identity for you, then uses it to source jobs and apply to them — live, one question at a time, in your own voice — while tracking everything and keeping your inbox synced with your job search.
+An AI-powered hiring copilot for Claude Code and Cowork. NemoHire builds a persistent professional identity for you, then uses it to source jobs and apply to them — in your own voice, submitting automatically once every question has a real answer — while tracking everything and keeping your inbox synced with your job search.
 
 ## Why identity-first
 
@@ -15,7 +15,7 @@ The flow is deliberately simple: source jobs, then apply to them. There's no sep
 | `/nemo:init` | Build/update your professional identity | Sonnet (`identity-agent`) |
 | `/nemo:source` | Find jobs from sites, keywords, roles, locations | Haiku (`job-source-agent`) |
 | `/nemo:init-tracker` | Set up Notion or local markdown tracker | Haiku (`tracker-agent`) |
-| `/nemo:apply` | Apply sequentially, one job at a time, one question at a time | Haiku (coordination + browsing) + Sonnet (all writing/answering) |
+| `/nemo:apply` | Apply sequentially, one job at a time, question batch answered and submitted in one pass | Haiku (coordination + browsing) + Sonnet (all writing/answering) |
 | `/nemo:sync-email` | Classify hiring emails and update the tracker | Haiku (`email-agent`) |
 
 ## Architecture
@@ -25,27 +25,39 @@ Every capability is split across three layers so it stays maintainable and cheap
 - **Commands** (`commands/*.md`) — user-facing entry points (the table above).
 - **Agents** (`agents/*.md`) — 7 single-responsibility subagents: `identity-agent`, `job-source-agent`, `application-coordinator-agent`, `browser-agent`, `tracker-agent`, `memory-agent`, `email-agent`. Only one of them — `identity-agent` — ever writes or answers content a human reads.
 - **Skills** (`skills/*/SKILL.md`) — 6 reusable capabilities (browser-navigation, chrome-connector, file-upload, notion-tracker, email-sync, document-generation) that agents invoke rather than re-implementing.
-- **Memory** (`.claude/nemohire/` in your project) — one JSON file for jobs, markdown for everything else, scaffolded automatically by `/nemo:init` and `/nemo:init-tracker`. See `templates/` for the schema of every file.
+- **Memory** (`.claude/nemohire/` in your project) — plain files, scaffolded automatically by `/nemo:init` and `/nemo:init-tracker`. See `templates/` for the schema of every file.
 
 ```
 .claude/nemohire/
-├── identity/            # who you are (14 files) — built by /nemo:init
+├── identity/                # who you are (14 files) — built by /nemo:init
 ├── jobs/
-│   ├── jobs.json         # every job NemoHire knows about — sourced or manually supplied, tracked by status + unique id
-│   ├── cache/<id>/        # per-job cache: company-context.md, written once by browser-agent
-│   └── applied/<id>/      # per applied job: resume.md, cover-letter.md, application-record.md
-├── tracker/             # Notion database link or local markdown table
-├── emails/              # last-sync watermark
+│   ├── sourced.json           # optional: whatever /nemo:source found — a plain array, no fixed schema
+│   ├── cache/<id>/             # posting.md + company-context.md + questions.md, per apply-attempt id
+│   └── applied/<id>/           # resume.md, cover-letter.md, application-record.md
+├── tracker/                 # Notion database link or local markdown table
+├── emails/                  # last-sync watermark
 └── config.md
 ```
 
-Every job gets a stable, unique `id` the moment it's added to `jobs.json` (schema: `templates/tracker/jobs-schema.md`) — whether `/nemo:source` found it or you handed it in yourself. That id is the backbone of the whole apply flow: large text (the job posting, the company/product context) is written once, to a file keyed by that id, and read directly by whichever agent needs it. It's never re-transmitted between agents turn after turn — a 10-question application costs ten small round trips, not ten repetitions of the full posting and company profile.
+### Sourcing and applying don't share a schema
 
-Every job in `jobs/applied/<id>/` carries a complete `application-record.md`: the exact resume and cover letter content submitted, every question the live form asked and the exact answer given, the company context gathered, files uploaded, and the timestamp/URL. It's a full copy, not a pointer — you can look back at exactly what was said to any company.
+`/nemo:source` writes `jobs/sourced.json` — a plain array, whatever shape `job-source-agent` naturally extracts. `/nemo:apply --jobs-file <path>` accepts that file, a hand-written one, or an export from somewhere else, all identically — there's no special-casing between "found by NemoHire" and "handed in by you." You don't need to run `/nemo:source` at all.
 
-### You don't need `/nemo:source` to use `/nemo:apply`
+### Ids are minted per apply-attempt, not read from any file
 
-If you already have postings from somewhere else, run `/nemo:apply --jobs-file <path>` with a JSON file in the `jobs.json` shape (or close to it). `memory-agent` maps the fields, computes an id for anything missing one, marks it `source: "manual"`, dedupes against what's already there, and flags anything it couldn't map — then applying proceeds exactly the same way. Sourcing and applying are fully decoupled.
+The moment `application-coordinator-agent` is about to actually apply to a specific job, it mints a fresh id right then and writes `jobs/cache/<id>/posting.md` from whatever fields it found in the input entry — title, company, description, requirements, URLs, best-effort. That's the one place arbitrary input format gets absorbed. Everything downstream — `identity-agent` reading the posting, `browser-agent` opening the application, the whole live Q&A loop — works off that one normalized file, by id, regardless of what the original file looked like or whether it had an id at all.
+
+That id is also the backbone of the apply loop's efficiency: large text (the posting, the company/product context, the full set of application questions) is written once, to files keyed by that id, and read directly by whichever agent needs it. It's never re-transmitted between agents question by question — a 10-question application costs a handful of dispatches (extract, answer, fill/submit), not ten repetitions of the full posting and company profile. And because each job gets its own fresh id, `identity-agent` always reads the right context: change the id, and the posting/company-context/questions files it reads change with it — there's no way for one job's context to leak into another's.
+
+Every job in `jobs/applied/<id>/` carries a complete `application-record.md`: the exact resume and cover letter content submitted, every question the form asked and the exact answer given, the company context gathered, files uploaded, and the timestamp/URL. It's a full copy, not a pointer — you can look back at exactly what was said to any company. Since ids aren't stable across runs, duplicate-application checking is done by application/posting URL against the tracker, not by id.
+
+### `/nemo:apply` never re-applies to a job you've already applied to
+
+Before it shows you anything, `/nemo:apply` asks `tracker-agent` for every application/posting URL already in the tracker (whichever backend is active — see below) and drops any matching entry from the jobs file. This runs once per invocation, up front, so you can safely re-run `/nemo:apply --all` against the same sourced file repeatedly without worrying about duplicate applications. The tracker is also updated immediately after each individual job is submitted, not batched until the end of the run — so this filter stays accurate even if a run is interrupted partway through.
+
+### The tracker backend is config, not just internal state
+
+`/nemo:init-tracker` records which backend is active (`notion` or `local`) in `.claude/nemohire/config.md`, alongside the machine-readable copy in `tracker/sync-state.json`. It's information about how your NemoHire setup is configured, not just a private implementation detail — so it lives in config.md where the rest of your setup is documented.
 
 ## Model routing — strict, by design
 
@@ -58,22 +70,24 @@ NemoHire always tries the built-in browser tooling first (`skills/browser-naviga
 ## Safety guarantees for `/nemo:apply`
 
 - Applications are processed **strictly sequentially**, never in parallel.
-- A **submission summary** (company, role, every answer, every uploaded file, flagged fields) is always shown before the actual submit action fires — even in an unattended batch run.
-- No fields are ever filled with fabricated information; anything not present in your identity or the posting is flagged for you rather than guessed.
+- No fields are ever filled with fabricated information; anything not present in your identity or the posting is written as `[NEEDS INPUT: ...]` and stops the run for that job rather than being guessed.
+- There is **no pre-submit summary or confirmation gate** — `browser-agent` submits directly as soon as every question has a real answer. The full record (posting, company context, every question and answer, files uploaded) is preserved in `jobs/cache/<id>/` and `jobs/applied/<id>/application-record.md` for after-the-fact review instead.
 - Failed submissions leave the tracker status untouched (never marked "Applied" on failure).
 
-### The apply loop: a relay, not a debate — and a cheap one
+### The apply loop: two file-mediated dispatches per job, not one relay per question
 
-`application-coordinator-agent` (Haiku) never writes or decides an answer, and never holds large text — it only sequences and relays small, fixed-size messages. `browser-agent` (Haiku, browser-scoped tools only) is the only agent that touches the page, and it never invents content either. `identity-agent` (Sonnet) is the only agent that ever produces an answer, and it always does so as you:
+`application-coordinator-agent` (Haiku) never writes or decides an answer, and never holds large text — it mints ids, seeds cache files, and dispatches the other agents. `browser-agent` (Haiku, browser-scoped tools only) is the only agent that touches the page, and it never invents content either. `identity-agent` (Sonnet) is the only agent that ever produces an answer, and it always does so as you:
 
-1. `identity-agent` is given just the job's `id`. It reads the posting from `jobs.json` itself, tailors a resume, and writes a cover letter, saving both to `jobs/applied/<id>/`.
-2. `browser-agent` is given the same `id`. It looks up the application URL itself, opens it, pulls the company/product description and **writes it straight to `jobs/cache/<id>/company-context.md` itself** (never returning that text), fills anything it can answer itself straight from `identity/profile.md`/`identity/documents.md`, and returns just the first field it can't answer.
-3. The coordinator relays `{id, question}` — and nothing else — to `identity-agent`.
-4. `identity-agent` reads the posting and the cached company context itself, by id, and answers as you — first person, plain human grammar.
-5. The coordinator relays just the answer text back; `browser-agent` fills it in verbatim and returns the next field.
-6. Repeat until nothing's left, then uploads, then the submission summary, then submit.
+0. Before any of this, the coordinator asks `tracker-agent` which application/posting URLs are already tracked and drops those jobs from consideration entirely.
+1. The coordinator mints a fresh `id` for this job and writes `jobs/cache/<id>/posting.md` from whatever it found in the input file.
+2. `identity-agent` is given just the `id`. It reads `jobs/cache/<id>/posting.md`, always writes a cover letter, and only tailors a resume if `identity/documents.md` says the user opted into per-job tailoring during `/nemo:init` (default: no — the base resume is used as-is). Both saved to `jobs/applied/<id>/`.
+3. `browser-agent` is given `{id, application_url}` — **dispatch 1**. It opens the URL, writes the company/product description straight to `jobs/cache/<id>/company-context.md`, fills anything it can answer itself from `identity/profile.md`/`identity/documents.md`, and writes every remaining question to `jobs/cache/<id>/questions.md` in one pass, reporting back only a count.
+4. `identity-agent` is given just the `id` again. It reads `posting.md`, `company-context.md`, and `questions.md`, and answers every question in one dispatch, writing directly into each `Answer` field — first person, plain human grammar. Anything it can't ground gets `[NEEDS INPUT: <what's missing>]` instead of a guess.
+5. If any answer is flagged `[NEEDS INPUT: ...]`, the coordinator stops and asks the user for exactly that — nothing downstream is allowed to guess.
+6. `browser-agent` is dispatched a second time — **dispatch 2**. It reads the now-answered `questions.md`, fills every field on the page by matching the recorded question text, uploads the prepared files, and **submits directly** — no summary, no confirmation wait.
+7. `memory-agent` writes `jobs/applied/<id>/application-record.md`, the tracker is updated immediately, and `browser-agent` closes the tab(s).
 
-No step in this loop ever repeats the job posting or company description through a Task call more than once — they're written to disk once and read by id as many times as needed.
+No step in this loop ever repeats the job posting, company description, or question text through a Task call more than once — everything is written to disk once and read by id as many times as needed.
 
 ### Human voice, always
 
@@ -84,7 +98,7 @@ Every piece of content that ends up in front of an employer — resume, cover le
 1. Run `/nemo:init` to build your identity.
 2. Run `/nemo:init-tracker` to choose Notion or local markdown.
 3. Run `/nemo:source` with your target sites/keywords.
-4. Run `/nemo:apply` on the jobs you want to pursue — one at a time, live.
+4. Run `/nemo:apply` on the jobs you want to pursue — one at a time, each submitted automatically once fully answered.
 5. Run `/nemo:sync-email` periodically (or on a schedule) to keep the tracker current.
 
 See `INSTALL.md` for setup in Claude Code vs. Cowork.

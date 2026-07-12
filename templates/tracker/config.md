@@ -16,13 +16,17 @@ This file is created by `/nemo:init` under `.claude/nemohire/config.md` in the u
 ## Browser scope
 - Only browser-scoped tools are ever used (the built-in browser tooling, or the Chrome Connector fallback). Full computer-use/desktop-control tools are never used anywhere in this plugin.
 
+## Sourcing and applying are decoupled
+- `jobs/sourced.json` is a plain array with no fixed schema — `/nemo:apply --jobs-file <path>` accepts it or any other reasonably job-shaped file identically. There's no schema contract between `/nemo:source`'s output and what `/nemo:apply` requires.
+
 ## Minimal-communication rule
-- Every job has a stable, unique id the moment it enters `jobs.json`. Large text (job postings, company/product context) is written once, to a file keyed by that id, and read directly by whichever agent needs it — never re-sent between agents on every turn. See `templates/tracker/jobs-schema.md`.
+- Job ids are minted by `application-coordinator-agent`, per apply-attempt, at the moment it's about to dispatch `browser-agent` for that job — never read from the input file. The moment an id is minted, the coordinator seeds `jobs/cache/<id>/posting.md` from whatever fields it found. From then on, large text (postings, company/product context) is written once, to files keyed by that id, and read directly by whichever agent needs it — never re-sent between agents on every turn. See `templates/tracker/job-cache-schema.md`.
+- `identity-agent` always re-reads both cache files fresh, for the id given in the current call — never carrying context from one job's id into another's.
 
 ## Paths
 - Identity: `.claude/nemohire/identity/`
-- Jobs list: `.claude/nemohire/jobs/jobs.json` (schema: `templates/tracker/jobs-schema.md`) — sourced and manually-imported jobs alike, tracked by `status`
-- Per-job cache: `.claude/nemohire/jobs/cache/<id>/company-context.md`
+- Sourced jobs (optional, no fixed schema): `.claude/nemohire/jobs/sourced.json`
+- Per-job cache (schema: `templates/tracker/job-cache-schema.md`): `.claude/nemohire/jobs/cache/<id>/posting.md`, `.claude/nemohire/jobs/cache/<id>/company-context.md`
 - Applied jobs: `.claude/nemohire/jobs/applied/<id>/` (resume.md, cover-letter.md, application-record.md)
 - Tracker: `.claude/nemohire/tracker/`
 - Emails: `.claude/nemohire/emails/`
