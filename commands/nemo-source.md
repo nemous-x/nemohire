@@ -10,7 +10,7 @@ Delegate to the `job-source-agent`. This is entirely optional — if you already
 
 ## Behavior
 
-1. **Require identity.** If `.claude/nemohire/identity/profile.md` doesn't exist, tell the user to run `/nemo:init` first.
+1. **Require identity.** If `.claude/nemohire/identity/profile.md` doesn't exist or is still placeholder content, tell the user to run `/nemo:init` first — same precondition check `/nemo:apply` and `/nemo:continue` use.
 2. **Collect inputs.** Use arguments if given; otherwise ask the user for: target websites/job boards, keywords, target roles, and locations. Fall back to `identity/job-preferences.md` and `identity/location-preferences.md` for defaults.
 3. **Browse.** Per the plugin's browser strategy (see `skills/browser-navigation/SKILL.md`): try the built-in browser tooling first. If a site can't be accessed, stop and ask the user for explicit permission before falling back to the Chrome Connector (`skills/chrome-connector/SKILL.md`). Never switch browsers silently.
 4. **Extract, don't rewrite.** For each posting pull: title, company, location, salary (if listed), full description, requirements, posting URL, and application URL. Copy description text verbatim.

@@ -8,14 +8,15 @@ Generic "write me a cover letter" tools produce generic cover letters. NemoHire'
 
 ## Commands
 
-The flow is deliberately simple: source jobs, then apply to them. There's no separate ranking or drafting stage — everything happens live, per job, when you apply.
+The flow is deliberately simple: source jobs, then apply to them, with `/nemo:continue` there if an apply run ever needs to pick back up. There's no separate ranking or drafting stage — everything happens live, per job, when you apply.
 
 | Command | Purpose | Model |
 |---|---|---|
 | `/nemo:init` | Build/update your professional identity | Sonnet (`identity-agent`) |
 | `/nemo:source` | Find jobs from sites, keywords, roles, locations | Haiku (`job-source-agent`) |
 | `/nemo:init-tracker` | Set up Notion or local markdown tracker | Haiku (`tracker-agent`) |
-| `/nemo:apply` | Apply sequentially, one job at a time, question batch answered and submitted in one pass — coordinated by the active session itself, no coordinator subagent | Active session (sequencing) + Haiku (browsing/tracking) + Sonnet (all writing/answering) |
+| `/nemo:apply` | Apply sequentially, one job at a time, question batch answered and submitted in one pass — coordinated by the active session itself, no coordinator subagent. Checkpoints every finished job. | Active session (sequencing) + Haiku (browsing/tracking) + Sonnet (all writing/answering) |
+| `/nemo:continue` | Resume an interrupted `/nemo:apply` run from its last checkpoint — same logic, same code path, just a different starting point | Active session + Haiku + Sonnet, identical routing to `/nemo:apply` |
 | `/nemo:sync-email` | Classify hiring emails and update the tracker | Haiku (`email-agent`) |
 
 ## Architecture
@@ -33,10 +34,11 @@ Every capability is split across three layers so it stays maintainable and cheap
 ├── jobs/
 │   ├── sourced.json           # optional: whatever /nemo:source found — a plain array, no fixed schema
 │   ├── cache/<id>/             # posting.md + company-context.md + questions.md, per apply-attempt id
-│   └── applied/<id>/           # resume.md, cover-letter.md, application-record.md
+│   ├── applied/<id>/           # resume.md, cover-letter.md, application-record.md
+│   └── run-state.json          # checkpoint ledger — what /nemo:continue resumes from
 ├── tracker/                 # Notion database link or local markdown table
 ├── emails/                  # last-sync watermark
-└── config.md
+└── config.md                # the central reference every command checks first
 ```
 
 ### Sourcing and applying don't share a schema
@@ -58,6 +60,18 @@ Before it shows you anything, `/nemo:apply` asks `tracker-agent` for every appli
 ### The tracker backend is config, not just internal state
 
 `/nemo:init-tracker` records which backend is active (`notion` or `local`) in `.claude/nemohire/config.md`, alongside the machine-readable copy in `tracker/sync-state.json`. It's information about how your NemoHire setup is configured, not just a private implementation detail — so it lives in config.md where the rest of your setup is documented.
+
+### Every command checks preconditions in the same place, first
+
+`config.md` is the central reference every command reads before doing anything else — not just tracker backend, but the identity precondition too. `/nemo:apply` and `/nemo:continue` both refuse to proceed if `.claude/nemohire/identity/` is missing or still placeholder content (pointing you to `/nemo:init` instead of guessing or silently re-interviewing you), and both require a tracker backend to be set. `/nemo:source` checks the same identity precondition. `/nemo:sync-email` reads the same tracker backend. No command infers this information on its own or keeps a separate private copy — it's one connected flow, not several commands each assuming their own state.
+
+### `/nemo:apply` checkpoints every finished job, so a run is never lost
+
+Each job, as soon as it's submitted, failed, or skipped — or stopped on `[NEEDS INPUT: ...]` — gets an immediate entry written to `.claude/nemohire/jobs/run-state.json` (schema: `templates/tracker/run-state-schema.md`), before the next job starts. If a run stops for any reason (an unanswerable question, a submission failure, the session closing), nothing earlier is lost and nothing has to be redone. If `/nemo:apply` is invoked while an unfinished run still exists, it says so and points you to `/nemo:continue` rather than silently starting a second, overlapping run.
+
+### `/nemo:continue` resumes exactly where a run stopped
+
+`/nemo:continue` reads `run-state.json`, skips every job already checkpointed as done (regardless of outcome — a `failed` or `needs_input` job isn't silently retried), and runs the exact same per-job sequence `/nemo:apply` uses, starting from the first still-queued job. It's not a separate implementation — it's the same flow, entered from a different starting point, so the two commands can never drift out of sync with each other.
 
 ### Notion is connector-only, never browser
 
@@ -103,7 +117,8 @@ Every piece of content that ends up in front of an employer — resume, cover le
 2. Run `/nemo:init-tracker` to choose Notion or local markdown.
 3. Run `/nemo:source` with your target sites/keywords.
 4. Run `/nemo:apply` on the jobs you want to pursue — one at a time, each submitted automatically once fully answered.
-5. Run `/nemo:sync-email` periodically (or on a schedule) to keep the tracker current.
+5. If a run stops partway through (missing info, a failure, a closed session), run `/nemo:continue` to pick up exactly where it left off — no need to start over or re-pick jobs.
+6. Run `/nemo:sync-email` periodically (or on a schedule) to keep the tracker current.
 
 See `INSTALL.md` for setup in Claude Code vs. Cowork.
 
@@ -113,5 +128,7 @@ See `INSTALL.md` for setup in Claude Code vs. Cowork.
 - Want a different tracker backend (e.g. Airtable)? Add a new skill alongside `notion-tracker`, and extend `tracker-agent`'s backend switch in `tracker/sync-state.json`.
 - New identity dimension? Add a template under `templates/identity/`, wire it into `commands/nemo-init.md`'s interview, and reference it from `identity-agent`.
 - Tempted to add a new specialized writing agent? Don't — `identity-agent` is deliberately the single content authority. Extend its responsibilities instead of splitting judgment across multiple Sonnet agents again.
+- Changing the per-job apply sequence? Edit it once, in `commands/nemo-apply.md`'s "The flow, concretely" — `commands/nemo-continue.md` explicitly points back at those same steps rather than duplicating them, so don't let the two drift apart by editing only one.
+- Adding a new precondition a command should check before running (like the identity and tracker checks)? Add it to `config.md`'s "Preconditions every command checks here first" section and to the actual command bodies — don't let a command infer state on its own that `config.md` could otherwise document centrally.
 
 Contributions should keep each new command/agent/skill single-responsibility — that's what keeps this plugin maintainable as it grows.

@@ -59,3 +59,7 @@ This is why a 10-question application only costs a handful of Task dispatches to
 ## Avoiding duplicate applications across runs
 
 Since ids are minted per apply-attempt and aren't stable across runs, duplicate-application checking is done by **application/posting URL** against the tracker (`tracker-agent`), not by id. The tracker's `Job ID` column records which specific `jobs/applied/<id>/` folder a row corresponds to — useful for looking up the full record, but not the dedup key.
+
+## Checkpointing within a single run
+
+This schema is about per-job cache/output files. A separate file, `jobs/run-state.json` (schema: `templates/tracker/run-state-schema.md`), tracks which jobs within one `/nemo:apply` run are queued vs. done, and is what `/nemo:continue` reads to resume an interrupted run. The two schemas are complementary: this one is keyed by job id and describes what's known about a single job; `run-state.json` is keyed by run and describes progress across the whole batch.

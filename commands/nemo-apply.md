@@ -1,5 +1,5 @@
 ---
-description: Apply to sourced (or externally supplied) jobs one at a time — prepares materials, answers every question in one batch pass via a shared file, then submits directly
+description: Apply to sourced (or externally supplied) jobs one at a time — prepares materials, answers every question in one batch pass via a shared file, then submits directly. Checkpoints each finished job to run-state.json; resumable via /nemo:continue.
 argument-hint: "[job selectors...] | --all | --jobs-file <path>"
 allowed-tools: Task, Read, Write, Glob
 ---
@@ -8,7 +8,15 @@ allowed-tools: Task, Read, Write, Glob
 
 **This command's coordination logic runs directly in the active session — it is not delegated to a subagent.** There is no `application-coordinator-agent`. You (the active session) mint ids, seed cache files, sequence the steps below, and dispatch `identity-agent`, `browser-agent`, `tracker-agent`, and `memory-agent` via `Task` one at a time. You never draft an answer, a resume line, or a cover-letter sentence yourself — that stays exclusively `identity-agent`'s job — but the sequencing itself is yours to run, in-session, not something you hand off to another coordinator agent.
 
-**Applications are processed strictly sequentially — never in parallel.** There's no separate ranking or prep step. Requires a tracker (`/nemo:init-tracker`) — the very first thing this command does is ask the tracker which jobs are already applied to, so it needs to know which backend is active (read from `config.md`).
+**Applications are processed strictly sequentially — never in parallel.** There's no separate ranking or prep step. Requires a tracker (`/nemo:init-tracker`).
+
+## Preconditions — check before doing anything else
+
+1. **Identity must exist and be populated.** Check `.claude/nemohire/identity/` for real content — not just that the folder exists, but that `profile.md`, `experience.md`, and `documents.md` actually have non-placeholder content in them. If identity is missing or still mostly `<!-- TODO: not yet provided -->` placeholders, **stop immediately** and tell the user to run `/nemo:init` first. Never proceed with a partial or absent identity and never silently re-run the interview yourself — that's `/nemo:init`'s job, not this command's.
+2. **Tracker must be configured.** Read `config.md`'s Tracker backend section. If it's missing, stop and tell the user to run `/nemo:init-tracker` first.
+3. **Check for an unfinished run.** Read `.claude/nemohire/jobs/run-state.json` (schema: `templates/tracker/run-state-schema.md`). If `current_run` still has any job with `"status": "queued"`, a previous `/nemo:apply` run didn't finish — tell the user and suggest `/nemo:continue` instead of starting a new, overlapping run. Only proceed with a fresh run here if the user explicitly says to (e.g. they want to abandon the incomplete one).
+
+Once these pass, ask the tracker which jobs are already applied to (see below), so it needs to know which backend is active (read from `config.md`).
 
 ## Any jobs file works — there's no schema link to `/nemo:source`
 
@@ -29,19 +37,22 @@ The moment you're about to actually apply to a specific job, you mint a fresh id
 
 ## The flow, concretely
 
-1. **Read the jobs file**, yourself, in the active session.
-2. **Skip already-applied jobs.** Dispatch `tracker-agent` (Task) to return every application/posting URL already in the tracker; remove any matching entry before doing anything else.
-3. **Let the user pick** which of the remaining entries to apply to (or use `--all` / explicit selectors).
+0. **Read the jobs file**, yourself, in the active session.
+1. **Skip already-applied jobs.** Dispatch `tracker-agent` (Task) to return every application/posting URL already in the tracker; remove any matching entry before doing anything else.
+2. **Let the user pick** which of the remaining entries to apply to (or use `--all` / explicit selectors).
+3. **Start the run.** Mint a fresh `run_id`, and write `jobs/run-state.json`'s `current_run` with every selected job listed at `"status": "queued"` (schema: `templates/tracker/run-state-schema.md`). This is the checkpoint ledger `/nemo:continue` will read if this run doesn't finish.
 4. **Mint + seed.** For the job about to be applied to: mint a fresh `id` yourself, write `jobs/cache/<id>/posting.md` yourself.
 5. **Prepare materials.** Dispatch `identity-agent` (Task) with just the `id` and the instruction "prepare materials for this posting." It reads the cached posting, always writes a cover letter, and only tailors a resume if `identity/documents.md` says the user opted into per-job tailoring during `/nemo:init` — otherwise it copies the base resume in unchanged. Both saved to `jobs/applied/<id>/`.
 6. **Extract questions.** Dispatch `browser-agent` (Task) with `{id, application_url}`. It opens the application, caches company context, fills what it can itself, writes every remaining question to `jobs/cache/<id>/questions.md`, and reports just a count.
 7. **Answer questions.** If there were any, dispatch `identity-agent` (Task) with just the `id` and the instruction to answer everything in `questions.md`, writing directly into that file.
-8. **Handle missing info.** If any answer is flagged `[NEEDS INPUT: ...]`, stop and ask the user for just that — don't let anything downstream guess.
+8. **Handle missing info.** If any answer is flagged `[NEEDS INPUT: ...]`, stop and ask the user for just that — don't let anything downstream guess. Before stopping, checkpoint this job in `run-state.json` as `"status": "done", "outcome": "needs_input"` so a later `/nemo:continue` doesn't silently skip past unresolved input — it'll still show up, just not re-attempted automatically until the user has supplied the missing piece and re-runs `/nemo:apply` for that job specifically.
 9. **Fill, upload, submit.** Dispatch `browser-agent` (Task) again to fill every field from `questions.md`, upload the documents, and submit — directly, without a pre-submit summary or confirmation step.
 10. **Application record.** Dispatch `memory-agent` (Task) to write `jobs/applied/<id>/application-record.md`, compiled from the cache files and the materials.
 11. **Update the tracker, right away.** Dispatch `tracker-agent` (Task) immediately after this job submits — don't batch tracker updates until the run ends — so the tracker (and the next run's already-applied filter) stays accurate even if the run stops partway through. Dispatch `browser-agent` to close the tab(s).
+12. **Checkpoint the job.** Immediately after this job settles — whether submitted, failed, or skipped — update its entry in `run-state.json`'s `current_run.jobs` to `"status": "done"` with the matching `outcome` (`submitted` / `failed` / `skipped`) and a short `note` if relevant. Do this before moving to the next job, not batched at the end — this is the actual checkpoint that makes the run resumable at exactly this point if it stops here.
+13. **Close out the run.** Once every job in `current_run.jobs` is `"status": "done"`, move `current_run` into `run-state.json`'s `history` array so the next `/nemo:apply` invocation starts a clean run.
 
-This repeats **per job, sequentially**, driven by you in the active session — not by a separate coordinator subagent.
+This repeats **per job, sequentially**, driven by you in the active session — not by a separate coordinator subagent. Steps 4–12 are exactly the sequence `/nemo:continue` re-enters for each remaining queued job — see `commands/nemo-continue.md`.
 
 ## Browser strategy
 
@@ -50,8 +61,9 @@ Try the built-in browser tooling first. If a site can't be accessed that way, **
 ## Safety and failure handling
 
 - `browser-agent` never fills or submits a field it — or `identity-agent` — didn't have a real answer for; a `[NEEDS INPUT: ...]` flag always stops the run for that job rather than guessing.
-- If submission fails (validation error, site error, CAPTCHA loop), stop, report the exact failure, and leave the tracker untouched for that job.
+- If submission fails (validation error, site error, CAPTCHA loop), stop, report the exact failure, checkpoint the job as `"outcome": "failed"` in `run-state.json`, leave the tracker untouched for that job, and move on to the next job rather than aborting the whole run (ask the user first if that's not what they want).
 - There is no pre-submit summary or confirmation gate — submission happens as soon as every question has a real answer. Everything about the application (posting, company context, every question and answer, files uploaded) is preserved in `jobs/cache/<id>/` and `jobs/applied/<id>/application-record.md` for after-the-fact review.
+- If the session is interrupted for any reason (error, closed session, user stopping), the last job-level checkpoint written to `run-state.json` is the resume point — `/nemo:continue` picks up from there, nothing earlier is redone.
 
 ## Human voice, always
 

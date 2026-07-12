@@ -12,7 +12,7 @@ Delegate to the `email-agent`.
 1. Read `.claude/nemohire/emails/last-sync.json` for the timestamp of the last sync (default: 30 days ago if absent).
 2. Fetch emails newer than that timestamp from the connected mail source.
 3. Classify each into: rejection, interview invite, recruiter response, assessment/take-home, offer, or other/not-hiring-related. Discard "other" without reporting details.
-4. For every classified hiring email, update the corresponding row in the tracker (Notion or local, per `tracker/sync-state.json`) — advance status, add a short note.
+4. For every classified hiring email, update the corresponding row in the tracker (backend read from `config.md`'s Tracker backend section, mirrored in `tracker/sync-state.json` — same source of truth `/nemo:apply` and `/nemo:continue` use) — advance status, add a short note. If the backend is `notion`, this goes through the Notion connector MCP via `tracker-agent`, never the browser.
 5. Update `.claude/nemohire/emails/last-sync.json` with the new timestamp.
 6. **Output only a summary**, never full email contents:
    - X interviews

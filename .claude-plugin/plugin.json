@@ -1,7 +1,7 @@
 {
   "name": "nemohire",
-  "version": "0.8.0",
-  "description": "AI-powered hiring copilot: builds a persistent professional identity, sources jobs (or takes a jobs file directly), and applies to them — in your own voice, submitted automatically once every question is answered — via an id-keyed job cache that keeps every agent exchange minimal, tracking every application and syncing hiring emails.",
+  "version": "0.9.0",
+  "description": "AI-powered hiring copilot: builds a persistent professional identity, sources jobs (or takes a jobs file directly), and applies to them — in your own voice, submitted automatically once every question is answered — via an id-keyed job cache that keeps every agent exchange minimal. Checkpoints every finished job and can resume an interrupted run with /nemo:continue, tracking every application and syncing hiring emails.",
   "author": {
     "name": "Nemous"
   },

@@ -28,6 +28,7 @@
 - [ ] `/nemo:init-tracker` completed — tracker backend chosen and created
 - [ ] At least one `/nemo:source` run with real target sites/keywords
 - [ ] Watched a `/nemo:apply` run closely on one job before trusting it to run unattended on several
+- [ ] If a run ever stops partway (missing info, a failure, a closed session), know that `/nemo:continue` picks it back up — no need to restart from scratch
 
 ## Uninstalling
 
