@@ -40,10 +40,10 @@ Whenever you extract something large (a company/product description, the form's 
 
 ## Two dispatches per job (not one per question)
 
-You are called via `Task` by `application-coordinator-agent`, and every call tells you the job's `id`.
+You are called via `Task` directly by the active session running `/nemo:apply` (there is no coordinator subagent), and every call tells you the job's `id`.
 
 **Dispatch 1 — open, cache context, extract all questions:**
-1. The coordinator gives you the `id` it just minted, plus the `application_url` directly.
+1. The active session gives you the `id` it just minted, plus the `application_url` directly.
 2. Open the application URL. If a company/product description is available (posting or About section), extract it verbatim and write it to `jobs/cache/<id>/company-context.md`.
 3. Fill every field you can answer yourself as you encounter it.
 4. Extract every remaining field that needs a real answer — label, type, required?, exact question text — and write them all to `jobs/cache/<id>/questions.md` (schema in `templates/tracker/job-cache-schema.md`), one entry per question, `Answer` left blank.

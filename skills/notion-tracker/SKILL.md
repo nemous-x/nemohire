@@ -8,6 +8,9 @@ description: >
 
 # Notion Tracker
 
+## Connector-only, never browser (non-negotiable)
+Every interaction with Notion — creating the database, inserting rows, updating status, querying existing rows/URLs — goes through the Notion connector MCP tools (`mcp__notion__*`, or the Claude Code equivalent). Never open notion.so through `browser-agent` or any browser-scoped tool, and never fall back to computer-use/desktop control. If the Notion connector isn't connected or isn't authorized, stop and report that — don't attempt to reach Notion any other way, and don't silently substitute local markdown (that switch is `/nemo:init-tracker`'s decision, made explicitly by the user).
+
 ## Database creation
 Create a database titled **"📋 Job Applications"** with exactly these fields — do not add extras unless the user explicitly asks:
 

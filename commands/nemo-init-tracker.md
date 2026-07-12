@@ -11,7 +11,7 @@ Delegate to the `tracker-agent`.
 ## Behavior
 
 1. **Ask** (unless given as an argument): "Where should applications be tracked — Notion or local markdown?"
-2. **If Notion:** confirm a Notion connector is available. If not, tell the user to connect Notion first and stop. Otherwise create a database titled "📋 Job Applications" with exactly these fields:
+2. **If Notion:** confirm the Notion connector MCP is available and authorized. If not, tell the user to connect Notion first and stop — there is no browser-based fallback for Notion, ever. Otherwise, using the connector MCP tools (never the browser), create a database titled "📋 Job Applications" with exactly these fields:
    - Job ID (text) — matches the `jobs/applied/<id>/` folder for this specific apply attempt (informational; not the dedup key, since ids are minted fresh per attempt — dedup is by Job Posting URL)
    - Role (title)
    - Company (text)

@@ -8,15 +8,15 @@ This describes how `/nemo:apply` handles job data, now that sourcing and applyin
 
 `/nemo:apply --jobs-file <path>` accepts **any** file that looks roughly like a list of jobs — `sourced.json`, a hand-written file, an export from somewhere else, field names that don't quite match. It does not require an id, a status field, or any particular shape. There is deliberately no code path that treats "jobs `/nemo:source` found" differently from "jobs a person handed in" — both go through the exact same reading.
 
-## Ids are minted by the orchestrator, not sourced from any file
+## Ids are minted directly by the active session, not sourced from any file, and not by a coordinator subagent
 
-When `application-coordinator-agent` picks a job entry to actually apply to, it mints a fresh id **at that moment** — right before it dispatches `browser-agent` for the first time on this job. The id never comes from the input file (which might not have one, and might not even use the word "id" for anything). It's a short, unique token scoped to this specific apply attempt.
+When the active session running `/nemo:apply` picks a job entry to actually apply to, it mints a fresh id itself **at that moment** — right before it dispatches `browser-agent` for the first time on this job. There is no `application-coordinator-agent` doing this on its behalf; the session driving the command does it directly. The id never comes from the input file (which might not have one, and might not even use the word "id" for anything). It's a short, unique token scoped to this specific apply attempt.
 
 This id is what everything downstream is keyed by:
 
 ```
 .claude/nemohire/jobs/cache/<id>/
-├── posting.md            # written by the coordinator, right when it mints the id
+├── posting.md            # written by the active session, right when it mints the id
 ├── company-context.md    # written by browser-agent, on its first dispatch for this job
 └── questions.md          # written by browser-agent (extraction), then filled in by identity-agent (answers)
 
@@ -28,7 +28,7 @@ This id is what everything downstream is keyed by:
 
 ## How the format flexibility gets absorbed
 
-The moment the coordinator mints an id for a job, it takes whatever fields it could find in that entry — however the source file happened to name or shape them — and writes a normalized `jobs/cache/<id>/posting.md` (title, company, description, requirements, posting/application URLs, best-effort). **This is the only place arbitrary input format is dealt with.** Everything after that point — `identity-agent` reading the posting, `browser-agent` opening the application, the whole Q&A pass — works off this one normalized file, by id, regardless of what the original source file looked like.
+The moment the active session mints an id for a job, it takes whatever fields it could find in that entry — however the source file happened to name or shape them — and writes a normalized `jobs/cache/<id>/posting.md` (title, company, description, requirements, posting/application URLs, best-effort). **This is the only place arbitrary input format is dealt with.** Everything after that point — `identity-agent` reading the posting, `browser-agent` opening the application, the whole Q&A pass — works off this one normalized file, by id, regardless of what the original source file looked like.
 
 ## `questions.md` — how the whole application's Q&A moves in one file, not one Task call per question
 
@@ -50,7 +50,7 @@ Format, per question:
 - `identity-agent` is dispatched once per job to answer everything in the file, writing directly into each `Answer` field. If it can't answer one, it writes `[NEEDS INPUT: <what's missing>]` instead of guessing.
 - `browser-agent` is dispatched a second time to read the answered file and fill the actual form fields, matching by the `Question`/`Field` text it recorded — then it uploads and submits directly, unless it finds a remaining `[NEEDS INPUT: ...]` flag, in which case it stops and reports exactly what's missing.
 
-This is why a 10-question application only costs a handful of Task dispatches total (extract, answer, fill/submit) rather than 10+ round trips — the file is the handoff, not the coordinator.
+This is why a 10-question application only costs a handful of Task dispatches total (extract, answer, fill/submit) rather than 10+ round trips — the file is the handoff, not a coordinator agent (there is no such agent; the active session dispatches these directly).
 
 ## Company context and questions stay tied to their id
 

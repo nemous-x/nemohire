@@ -11,7 +11,7 @@ description: >
 ## Steps
 
 1. Identify every upload-type field on the current page, its label, and accepted file types (PDF, DOCX, etc. — read `accept` attributes or visible instructions if available).
-2. Match fields to files by purpose, not just by order on the page (`<id>` is the id minted by the coordinator for this apply attempt — see `templates/tracker/job-cache-schema.md`):
+2. Match fields to files by purpose, not just by order on the page (`<id>` is the id minted by the active session running `/nemo:apply` for this apply attempt — see `templates/tracker/job-cache-schema.md`):
    - Resume/CV field → `jobs/applied/<id>/resume.*` (written there by `identity-agent` at the start of this job's apply attempt)
    - Cover letter field → `jobs/applied/<id>/cover-letter.*`
    - Portfolio/work-samples field → entries listed under `identity/documents.md`

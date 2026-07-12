@@ -4,8 +4,8 @@ description: >
   Finds job postings on user-specified sites using the built-in browser first, falling back to
   the Chrome Connector only with explicit user permission. Extracts postings verbatim without
   rewriting descriptions and appends them to jobs/sourced.json as a plain array — no fixed
-  schema, no id, no status. That's assigned later, per apply-attempt, by
-  application-coordinator-agent. Use for /nemo:source.
+  schema, no id, no status. That's assigned later, per apply-attempt, by the active session
+  running /nemo:apply. Use for /nemo:source.
 
   <example>
   Context: User wants jobs from a specific board.

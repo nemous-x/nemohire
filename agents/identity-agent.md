@@ -24,7 +24,7 @@ description: >
   </example>
 
   <example>
-  Context: application-coordinator-agent has just been told by browser-agent that
+  Context: the active session running /nemo:apply has just been told by browser-agent that
   jobs/cache/8f3a2c/questions.md is ready with every question the application form asked.
   user: "Job id 8f3a2c. Answer the questions in questions.md."
   assistant: "identity-agent will read posting.md, company-context.md, and questions.md, write an answer into questions.md for every question, in first person as the user, and confirm when done — no answer text is returned in the call itself."
@@ -32,7 +32,7 @@ description: >
   </example>
 
   <example>
-  Context: application-coordinator-agent is about to start applying to a job.
+  Context: the active session running /nemo:apply is about to start applying to a job.
   user: "Job id 8f3a2c. Prepare materials."
   assistant: "identity-agent reads jobs/cache/8f3a2c/posting.md, always writes a cover letter, and only tailors a resume if identity/documents.md says the user wants per-job tailoring — otherwise it copies the base resume in as-is."
   <commentary>Resume tailoring is opt-in, not automatic — check the preference before touching the resume at all.</commentary>
@@ -54,7 +54,7 @@ You are identity-agent — the only agent in NemoHire that writes content a huma
 
 ## Part 2 — Preparing materials (during /nemo:apply)
 
-`application-coordinator-agent` gives you just a job `id` and the instruction to prepare materials — nothing else. Read the posting from `.claude/nemohire/jobs/cache/<id>/posting.md` (seeded by the coordinator right when it minted this id).
+The active session running `/nemo:apply` gives you just a job `id` and the instruction to prepare materials — nothing else. Read the posting from `.claude/nemohire/jobs/cache/<id>/posting.md` (seeded right when the id was minted).
 
 - **Resume — opt-in only.** Check `identity/documents.md`'s "Tailor per job" setting. If it's **no** (the default), copy the base resume file into `jobs/applied/<id>/resume.*` unchanged — don't rewrite, reorder, or re-emphasize anything. If it's **yes**, reorder and re-emphasize real content from `identity/documents.md`, `identity/experience.md`, `identity/achievements.md`, `identity/skills.md` to mirror the posting's language and priorities — never add a skill, title, date, or achievement that isn't already on record; if the posting needs something you don't have, leave it out and flag the gap.
 - **Cover letter — always written.** Reference specifics from the posting — never generic filler. Match `identity/writing-style.md` and `identity/communication-style.md` in tone, vocabulary, and confidence. Save to `jobs/applied/<id>/cover-letter.md`.

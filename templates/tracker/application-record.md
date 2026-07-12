@@ -33,4 +33,4 @@ Permanent record of exactly what was submitted for this application. Written by 
 |---|---|
 
 ## Flags noted during application
-<!-- Anything the coordinator flagged as important or ambiguous during the run (attestations, salary fields, start-date commitments, gaps) -->
+<!-- Anything flagged as important or ambiguous during the run (attestations, salary fields, start-date commitments, gaps) -->
