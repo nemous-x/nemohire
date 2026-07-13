@@ -1,27 +1,32 @@
 ---
 name: chrome-connector
 description: >
-  Fallback browser access for sites the built-in browser tooling cannot handle. Use only after
-  browser-navigation has failed on a specific site AND the user has explicitly granted
-  permission to use the Chrome Connector for that site. Never invoke this skill silently.
+  Browser access via the user's own real, already-open Chrome — a reactive fallback only, reserved
+  for a page that genuinely can't load in Playwright MCP at all, or a login that genuinely can't
+  be done inside Playwright's own browser session. It is not the default response to a login wall
+  — most logins happen directly in Playwright, in the same window that's already open. Always
+  requires the user's explicit go-ahead for that specific site. Never invoke this skill
+  proactively, and never based on a hardcoded list of site names.
 ---
 
-# Chrome Connector (Fallback)
+# Chrome Connector
 
-This skill exists for one reason: some sites (heavy client-side rendering, aggressive bot detection, login-gated ATS portals) can't be handled by the built-in browser tool. It is a fallback, not a default.
+## When this gets used
 
-## When to use
-Only when both are true:
-1. `browser-navigation` was attempted first and failed on this specific site.
-2. The user has been asked, by name for that site, and has explicitly said yes to using the Chrome Connector.
+Only reactively, never proactively, never by name-matching a domain against a fixed list, and never as the automatic response to every login wall — logging in normally happens right inside Playwright's own browser window instead (see `skills/browser-navigation/SKILL.md`). This skill is reserved for two narrower cases:
 
-Never chain-fallback automatically. Never ask once at the start of a session and treat it as blanket permission for every site afterward — ask per site (or per clearly-scoped batch the user approved together).
+1. **A page genuinely won't load in Playwright MCP at all.** Timeout, block, broken rendering — `browser-navigation` was tried first and genuinely failed. Record the domain in `./.claude/nemohire/browser-fallback-sites.json` (see `skills/browser-navigation/SKILL.md`) so future jobs on the same domain come straight here instead of failing Playwright again first.
+2. **A login genuinely can't be done through Playwright's session.** Most login walls are handled by simply asking the user to log in directly in the Playwright browser that's already open — that's the default, not this. Reach for the Chrome Connector instead only when that's not workable: the session isn't one the user can interact with directly, or the site specifically requires the user's own already-authenticated browser profile (saved passkeys, a trusted-device history, etc.) rather than accepting a fresh login. When this is the case, ask the user to log into that site in the Chrome Connector's browser (their real, already-open Chrome, carrying their actual session), then continue once they confirm.
+
+Either way: always per-site, always with the user's explicit yes for that site, never chained automatically, never treated as blanket permission for every site afterward just because it was granted once.
 
 ## Steps
-1. Confirm the Chrome extension/connector is actually connected (check via the connector's own status tool). If not connected, tell the user to install/connect it and stop — do not attempt a workaround.
-2. Navigate and extract using the Chrome Connector's tools, following the same extraction contract as `browser-navigation` (verbatim descriptions, structured field maps for applications).
-3. Treat any link encountered inside the page (ads, unrelated navigation) with the same suspicion rules as the rest of the plugin — don't click unrelated links.
-4. Close tabs when done with a given job.
+1. Confirm the Chrome extension/connector is actually connected. If not, tell the user to install/connect it and stop.
+2. If this is the login case, ask the user to log into the relevant site in that browser first, and wait for confirmation before continuing.
+3. Navigate and read using the Chrome Connector's tools — its structured page read first, a screenshot only when that's genuinely not enough. It's one browser, one set of tabs — never driven by more than one dispatch at once, same as the primary path.
+4. **File uploads work differently here than in Playwright** — see `skills/file-upload/SKILL.md`. The Chrome Connector doesn't have Playwright's native file-attach capability, so this is the one place a native OS file dialog is expected and handled directly via desktop control, not avoided.
+5. Treat any link encountered inside the page (ads, unrelated navigation) with the same suspicion rules as the rest of the plugin.
+6. Close tabs when done with a given job.
 
 ## Reporting
-When this skill was used, say so explicitly in the command's final summary (e.g. "3 postings required the Chrome Connector") so the user always knows when the fallback was engaged.
+Say so explicitly in the outcome for that job (e.g. "used the Chrome Connector — page wouldn't load in Playwright" or "used the Chrome Connector — site required login") so the user always knows when it was engaged and why.

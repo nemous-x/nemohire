@@ -1,6 +1,6 @@
 # Application Record — {{Company}} / {{Role}}
 
-Permanent record of exactly what was submitted for this application. Written by `memory-agent` at the end of `/nemo:apply`, alongside `resume.md` and `cover-letter.md` in the same `jobs/applied/<id>/` folder. This is a full copy, not a pointer — it stands on its own.
+Permanent record of exactly what was submitted for this application. Written by `apply-agent` itself, right after submitting, alongside `resume.md` and `cover-letter.md` in the same `jobs/applied/<id>/` folder. This is a full copy, not a pointer — it stands on its own.
 
 ## Summary
 - **Job id:**
@@ -11,7 +11,7 @@ Permanent record of exactly what was submitted for this application. Written by 
 - **Job posting URL:**
 
 ## Company context used
-<!-- The company/product description browser-agent extracted on turn 0, used to ground every answer below -->
+<!-- The short company/product highlight apply-agent extracted while browsing, used to ground the cover letter and any answers below -->
 
 ## Resume submitted
 <!-- Full content of the resume actually uploaded/submitted. Note whether it was tailored per
@@ -21,8 +21,8 @@ Permanent record of exactly what was submitted for this application. Written by 
 <!-- Full content of the cover letter actually uploaded/submitted -->
 
 ## Questions and answers
-<!-- Copied from jobs/cache/<id>/questions.md once every question had a real answer (no
-     [NEEDS INPUT: ...] flags remaining) -->
+<!-- Every real question the form asked and the exact answer apply-agent composed and submitted for it, recorded here once the application went through -->
+
 
 | Question | Answer submitted |
 |---|---|

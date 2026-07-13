@@ -1,4 +1,5 @@
 {
-  "backend": null,
-  "database_id": null
+  "notion_sync": false,
+  "database_id": null,
+  "data_source_id": null
 }

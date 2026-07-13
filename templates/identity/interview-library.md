@@ -1,6 +1,6 @@
 # Interview Library
 
-Reusable, first-person draft answers. These get adapted (not copy-pasted) per job by identity-agent during /nemo:apply.
+Reusable, first-person draft answers. These get adapted (not copy-pasted) per job by apply-agent during /nemohire:apply.
 
 ## Tell me about yourself
 
