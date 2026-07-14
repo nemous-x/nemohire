@@ -7,9 +7,9 @@ This is the always-on, offline-safe record of every application. It's created un
 
 <!-- Status values: To Apply, Applied, Interview, Offer, Accepted, Rejected, Ignored -->
 <!-- Date Applied must be ISO-8601 (YYYY-MM-DD) -->
-<!-- Job ID matches the jobs/applied/<id>/ folder name for this apply attempt. It's minted fresh
-     per apply-attempt (see templates/tracker/job-cache-schema.md), so dedup for this table — and
-     for any Notion database it's synced to — is by Job Posting URL, not Job ID. -->
+<!-- Job ID matches the id used in jobs/jobs.jsonl and jobs/details/<id>.md for this job. It's
+     minted fresh per job (see templates/tracker/jobs-ledger-schema.md), so dedup for this table —
+     and for any Notion database it's synced to — is by Job Posting URL, not Job ID. -->
 <!-- A linked Notion database may not have an equivalent Job ID column; that's fine, this column
      is local-only traceability and never required on the Notion side. -->
 

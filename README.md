@@ -35,28 +35,31 @@ Every agent runs on whatever model you've selected for the session — there's n
 There's no separate browsing agent, content-writing agent, or mechanical file-write layer standing between these — each agent does its whole job itself, in one dispatch.
 
 ```
-./.claude/nemohire/            # relative to the current project's working directory — not ~/.claude
+./.claude/nemohire/            # relative to the project root (the dir containing .claude/) — not ~/.claude
 ├── identity/                # who you are (14 files) — built by /nemohire:init
 ├── jobs/
-│   ├── sourced.json           # optional: whatever /nemohire:source found — a plain array, no fixed schema
-│   ├── cache/<id>/             # posting.md + company-context.md, per apply-attempt id
-│   ├── applied/<id>/           # resume.md, cover-letter.md, application-record.md
-│   └── run-state.json          # checkpoint ledger — what /nemohire:continue resumes from
+│   ├── jobs.jsonl              # the jobs ledger — one line per job, filterable/editable per row
+│   ├── details/<id>.md         # one file per job: posting, company context, cover letter, answers, record
+│   └── resumes/<id>.<ext>      # tailored resumes only, if per-job tailoring is on
 ├── tracker/                 # applications.md (canonical, always) + sync-state.json (Notion link, if enabled)
 ├── emails/                  # last-sync watermark
 ├── browser-fallback-sites.json  # hostnames Playwright MCP has genuinely failed to load before
 └── config.md                # project-specific only: Notion link/status, Gmail connector status, paths
 ```
 
-### Sourcing and applying don't share a schema
+### One ledger file, one details file per job
 
-`/nemohire:source` writes `jobs/sourced.json` — a plain array, whatever shape `job-source-agent` naturally extracts. `/nemohire:apply --jobs-file <path>` accepts that file, a hand-written one, or an export from somewhere else, all identically. You don't need to run `/nemohire:source` at all.
+Every job — sourced or applied — lives as one line in `jobs/jobs.jsonl` (see `templates/tracker/jobs-ledger-schema.md`), plus one `jobs/details/<id>.md` holding its posting, company context, cover letter, answers, and application record. This replaced an earlier design with up to five separate files per job and a nested run-state JSON tree: updating one job used to mean reading and rewriting an entire structure, and finding a job's data meant knowing which of several folders to check. Now every path is deterministic from the job's `id`, every row is independently addressable by line, and filtering ("give me the pending jobs") is a `Grep` with a `head_limit`, never a full-file read.
 
-### Ids are minted per apply-attempt, directly by the top-level command
+### Sourcing and applying share the same ledger
 
-Before dispatching any batch, `/nemohire:apply` itself (running directly in this session, not a subagent) mints a fresh id for each selected job and writes `jobs/cache/<id>/posting.md` from whatever fields it found — title, company, description, requirements, URLs, best-effort. That's the one place arbitrary input format gets absorbed; everything downstream (`apply-agent` reading the posting, opening the application, writing content) works off that one normalized file, by id. Doing this at the top level, as a plain file write, keeps `apply-batch-agent`'s own dispatch cheap — it never has to ingest a job's full description just to pass it along.
+`/nemohire:source` appends rows with `st:"new"` directly to `jobs.jsonl`, writing each posting's details file as it goes. `/nemohire:apply --jobs-file <path>` accepts that same ledger, or a hand-written file, or an export from somewhere else — for entries not already in the ledger, it mints fresh rows itself. You don't need to run `/nemohire:source` at all.
 
-Every job in `jobs/applied/<id>/` carries a complete `application-record.md`: the exact resume/cover-letter content, every question asked and answered, the company context, files uploaded, timestamp/URL. Since ids aren't stable across runs, duplicate-application checking is done by application/posting URL against the tracker directly, not by id.
+### Ids are minted directly by the top-level command, never searched for afterward
+
+Before dispatching any batch, `/nemohire:apply` itself (running directly in this session, not a subagent) mints a fresh id for each selected job and writes its details file's Posting section — a mechanical file write, not something requiring the model to reason over the content. That's the one place arbitrary input format gets absorbed; everything downstream (`apply-agent` reading the posting, opening the application, writing content) works off that one file, by id, at one fixed path: `jobs/details/<id>.md`. Every agent that touches a job's data is told explicitly to treat that path as deterministic and to never fall back to scanning the filesystem if something looks missing — a real gap gets reported as a failure, not searched for. Doing the minting at the top level, as a plain file write, also keeps `apply-batch-agent`'s own dispatch cheap — it never has to ingest a job's full description just to pass it along.
+
+Every job's details file carries a complete application record once submitted: the exact resume/cover-letter content, every question asked and answered, the company context, files uploaded, timestamp/URL. Since ids aren't stable across projects moved or re-sourced, duplicate-application checking is done by application/posting URL against the tracker directly, not by id.
 
 ### `/nemohire:apply` never re-applies to a job you've already applied to
 
@@ -68,11 +71,11 @@ Before showing you anything, `/nemohire:apply` reads `tracker/applications.md` d
 
 ### `/nemohire:apply` checkpoints every finished job, so a run is never lost
 
-Each job, as soon as `apply-agent` returns an outcome — submitted, failed, needs_input, or manual — gets an immediate entry in `./.claude/nemohire/jobs/run-state.json`, before the next job starts. If a run stops for any reason, nothing earlier is lost or redone. If `/nemohire:apply` is invoked while an unfinished run exists, it points you to `/nemohire:continue` instead of starting a second, overlapping run.
+Each job, as soon as `apply-agent` returns an outcome — submitted, failed, needs_input, or manual — gets its one line in `./.claude/nemohire/jobs/jobs.jsonl` edited to that terminal `st` value immediately, before the next job starts, via a single-line `Edit` (never a rewrite of the whole file). If a run stops for any reason, nothing earlier is lost or redone — the ledger itself is the checkpoint, there's no separate run-state file to keep in sync with it.
 
 ### `/nemohire:continue` resumes exactly where a run stopped
 
-It reads `run-state.json`, skips every job already checkpointed as done regardless of outcome (nothing is silently retried), and runs the same batch sequence `/nemohire:apply` uses, starting from the first still-queued job — the same flow, entered from a different starting point.
+It `Grep`s `jobs.jsonl` for rows still `"st":"queued"`, skips every job already terminal (submitted, failed, needs_input, or manual — nothing is silently retried), and runs the same batch sequence `/nemohire:apply` uses, starting from the first still-queued row — the same flow, entered from a different starting point.
 
 ### Email verification codes are retrieved via the Gmail connector, never guessed
 
@@ -94,18 +97,18 @@ Each job also has a **hard per-job action ceiling** (roughly 20 browser actions)
 - No fields are ever filled with fabricated information; anything not grounded in identity or the posting is flagged `needs_input` for that job rather than guessed.
 - A resume is always attached when the form has anywhere to put one — never skipped because a field wasn't marked required.
 - A login wall is never treated as a reason to skip a job — you're asked to log in right there in Playwright and the same job continues from there; only genuine account **creation** or a multi-step process beyond a normal one-page form is flagged `manual` and left for you to finish by hand.
-- There is **no pre-submit summary or confirmation gate** — `apply-agent` submits directly once everything required has a real answer. The full record is preserved in `jobs/applied/<id>/application-record.md` for after-the-fact review.
+- There is **no pre-submit summary or confirmation gate** — `apply-agent` submits directly once everything required has a real answer. The full record is preserved in `jobs/details/<id>.md`'s Application record section for after-the-fact review.
 - Failed submissions leave the tracker status untouched.
 
 ### The apply loop, per job — one dispatch, start to finish
 
-0. Before the run starts, this session reads `tracker/applications.md` directly and drops jobs already applied to, then mints an id and writes `jobs/cache/<id>/posting.md` for each selected job — a direct file write, not a subagent dispatch.
+0. Before the run starts, this session reads `tracker/applications.md` directly and drops jobs already applied to, then mints an id and writes `jobs/details/<id>.md`'s Posting section (plus a `st:"queued"` row in `jobs.jsonl`) for each selected job — a direct file write, not a subagent dispatch.
 1. `apply-batch-agent` is dispatched per batch with just each job's `{id, application_url}` — it never sees a posting or company context in full.
 2. For each job, one at a time: **dispatch `apply-agent`**. It opens the application, clicks through to the real form first if the page it lands on isn't already the form, decides whether it's a normal one-page form or one that needs manual handling (flagging it if so), writes a short company highlight and any cover letter/answers directly in your voice, fills, always attaches a resume when the form has anywhere to put one, handles an email verification step if needed, and submits.
-3. `apply-agent` writes `jobs/applied/<id>/application-record.md` and updates `tracker/applications.md` itself, directly.
-4. `apply-batch-agent` checkpoints the outcome in `run-state.json` right away, then moves to the next job.
+3. `apply-agent` appends the rest of `jobs/details/<id>.md` (company context, cover letter, answers, application record) in a single write, and updates `tracker/applications.md` itself, directly.
+4. `apply-batch-agent` checkpoints the outcome as a single-line edit to that job's row in `jobs.jsonl` right away, then moves to the next job.
 
-One dispatch per job covers the whole thing — there's no hand-off between a browsing step and a separate content-writing step, and no separate file used purely to coordinate between two agents. `apply-batch-agent` itself stays a thin dispatcher: minting ids and seeding cache files happens once, up front, at the top level — not repeated inside every batch dispatch.
+One dispatch per job covers the whole thing — there's no hand-off between a browsing step and a separate content-writing step, and no separate file used purely to coordinate between two agents. `apply-batch-agent` itself stays a thin dispatcher: minting ids and seeding details files happens once, up front, at the top level — not repeated inside every batch dispatch.
 
 ### Human voice, always
 
@@ -113,7 +116,7 @@ Every piece of content that reaches an employer — resume (if tailored), cover 
 
 ### A large queue doesn't need one marathon session
 
-`/nemohire:continue` is meant to be re-invoked as many times as it takes — call it again yourself whenever convenient, or set it up as a recurring scheduled task (see the `schedule` skill). `run-state.json` makes stopping and restarting freely safe.
+`/nemohire:continue` is meant to be re-invoked as many times as it takes — call it again yourself whenever convenient, or set it up as a recurring scheduled task (see the `schedule` skill). Every row's `st` value in `jobs.jsonl` makes stopping and restarting freely safe.
 
 ## Getting started
 

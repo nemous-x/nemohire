@@ -15,10 +15,9 @@ This file is created by `/nemohire:init` under `./.claude/nemohire/config.md` in
 
 ## Paths
 - Identity: `./.claude/nemohire/identity/`
-- Sourced jobs: `./.claude/nemohire/jobs/sourced.json`
-- Per-job cache: `./.claude/nemohire/jobs/cache/<id>/posting.md`, `./.claude/nemohire/jobs/cache/<id>/company-context.md`
-- Applied jobs: `./.claude/nemohire/jobs/applied/<id>/` (resume.md, cover-letter.md, application-record.md)
-- Run checkpoint ledger: `./.claude/nemohire/jobs/run-state.json`
+- Jobs ledger (one line per job — see `templates/tracker/jobs-ledger-schema.md`): `./.claude/nemohire/jobs/jobs.jsonl`
+- Per-job details (one file per job): `./.claude/nemohire/jobs/details/<id>.md`
+- Tailored resumes (only if per-job tailoring is on): `./.claude/nemohire/jobs/resumes/<id>.<ext>`
 - Browser fallback memory: `./.claude/nemohire/browser-fallback-sites.json`
 - Tracker: `./.claude/nemohire/tracker/`
 - Emails: `./.claude/nemohire/emails/`

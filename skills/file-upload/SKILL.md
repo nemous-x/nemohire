@@ -40,9 +40,9 @@ Don't apply the Playwright method while the Chrome Connector is active, or vice 
 
 ## Matching fields to files
 
-`<id>` is the id minted for this apply attempt (see `templates/tracker/job-cache-schema.md`):
-- Resume/CV field → `jobs/applied/<id>/resume.*` **if it exists**. A per-job resume file only exists when the user opted into per-job tailoring (`identity/documents.md`'s "Tailor per job: yes"). If tailoring is off (the default), no per-job copy is made at all — upload the base resume directly from the path recorded in `identity/documents.md`'s "Location/path" instead. Check for the per-job file first; fall back to the base path only if it's genuinely absent, never guess which one is "more current."
-- Cover letter field → `jobs/applied/<id>/cover-letter.*`
+`<id>` is the id minted for this job (see `templates/tracker/jobs-ledger-schema.md`):
+- Resume/CV field → `./.claude/nemohire/jobs/resumes/<id>.<ext>` **if it exists**. A per-job resume file only exists when the user opted into per-job tailoring (`identity/documents.md`'s "Tailor per job: yes"). If tailoring is off (the default), no per-job copy is made at all — upload the base resume directly from the path recorded in `identity/documents.md`'s "Location/path" instead. Check for the per-job file first; fall back to the base path only if it's genuinely absent, never guess which one is "more current."
+- Cover letter field → typed directly into the form field, composed in memory as part of the job (see `agents/apply-agent.md`), not read from a separate file.
 - Portfolio/work-samples field → entries listed under `identity/documents.md`
 
 ## When something doesn't fit
