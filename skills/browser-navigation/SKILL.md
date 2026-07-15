@@ -30,9 +30,9 @@ Whichever tool is active for a given job, the steps and discipline below apply t
 
 The first time Playwright genuinely fails to load a domain (not a one-off network blip — a real timeout, block, or broken rendering), record that domain in `./.claude/nemohire/browser-fallback-sites.json` (a plain array of hostnames) before switching tools or stopping. On every subsequent job, check this list first: if a job's domain is already on it, `job-source-agent` goes straight to the Chrome Connector; `apply-agent` goes straight to `needs_input` without wasting a doomed Playwright attempt first. This file is small, per-project, learned data, not plugin configuration — it just grows as real jobs are processed. It is never pre-populated with site names; it only ever contains domains this project has actually seen fail.
 
-## One session, used by one dispatch at a time
+## One session, used by one dispatch at a time — and one job at a time within it
 
-There is one browser session behind every job in a batch — one set of tabs, one navigation state. Two dispatches touching it at once, even for two unrelated jobs, will step on each other's tabs and corrupt both jobs' results. `/nemohire:apply`/`/nemohire:continue` always sends one job to `apply-agent`, waits for it to fully return, then sends the next — never two in flight together.
+There is one browser session behind every job in a batch — one set of tabs, one navigation state. Two dispatches touching it at once, even for two unrelated jobs, will step on each other's tabs and corrupt both jobs' results. `/nemohire:apply`/`/nemohire:continue` always send a whole batch (`--batch-size`, default 5) to `apply-agent` in a single dispatch, wait for it to fully return, then send the next batch — never two dispatches in flight together. Inside that one dispatch, `apply-agent` itself works through its batch strictly one job at a time — finishing a job's outcome and details file completely before opening the next job's URL in the same session — so the "one dispatch at a time" rule and the "one job at a time" rule are really the same rule, just applied at two levels.
 
 ## Steps
 
