@@ -23,12 +23,12 @@ Every piece of content that goes into an application — cover letter, resume, l
 `apply-agent` is the only agent that produces this content, and this rule applies to every word it writes.
 
 ## Structure
-- **Resume — opt-in only.** Check `identity/documents.md`'s "Tailor per job" setting. If off (the default), don't touch the resume and don't write a per-job copy — upload the base resume directly. If on, reorder and re-emphasize existing `identity/experience.md`/`identity/achievements.md` content to mirror this posting's language, and write it to `./.claude/nemohire/jobs/resumes/<id>.<ext>`. Use `templates/resumes/tailoring-checklist.md` as a guide.
+- **Resume — opt-in only.** Check `identity/documents.md`'s "Tailor per job" setting. If off (the default), don't touch the resume and don't write a per-job copy — upload the base resume directly. If on, reorder and re-emphasize existing `identity/experience.md`/`identity/achievements.md` content to mirror this posting's language, and write it to `./.claude/nemohire/jobs/resumes/<seq>-<id>.<ext>`. Use `templates/resumes/tailoring-checklist.md` as a guide.
 - **Cover letter — always written, per job.** Reference specifics from the posting, never generic filler. Use `templates/cover-letter/` as a structural starting point, not a fill-in-the-blank script. Composed in memory and written into the job's details file once, in the Cover letter section — not a separate file.
 - **Answers — composed in the moment, as you encounter each field.** Start from `identity/interview-library.md` for standard questions; adapt rather than reuse verbatim. There's no separate questions file to hand off to another agent — you read the form, you know the identity, you write the answer, you fill the field, all in the same pass.
 
 ## Reading context
-Read the Posting section of `./.claude/nemohire/jobs/details/<id>.md` yourself, fresh, for the id you were given — don't assume anything about a job from an earlier one in the same batch.
+There's no pre-written posting file to read — nothing under `jobs/details/` exists for this job yet. Read the posting straight off the live page once you've opened `application_url` (see `skills/browser-navigation/SKILL.md`); that's your only source, fresh for this job, don't assume anything about it from an earlier job in the same batch.
 
 ## When you can't ground an answer
 Don't fabricate it. Flag exactly what's missing (this is what `needs_input` means for that job) and keep going with everything else you can complete — only stop the whole job if the missing piece is required to submit at all.

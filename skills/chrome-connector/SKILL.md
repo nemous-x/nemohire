@@ -11,6 +11,10 @@ description: >
 
 # Chrome Connector
 
+## Not every agent even has this tool
+
+`job-source-agent` carries the Chrome Connector in its own toolset, so for sourcing it genuinely switches to it in the two cases below. `apply-agent` does not — by design, so that the vast majority of jobs (which never need it) don't pay for its tool schema on every dispatch. When `apply-agent` hits one of these two cases, it can't switch tools itself; it stops the job as `needs_input` with a note naming the Chrome Connector explicitly, so the user can see it and approve enabling it (a deliberate, explicit change to `apply-agent`'s own tool list, not something granted silently or by default).
+
 ## When this gets used
 
 Only reactively, never proactively, never by name-matching a domain against a fixed list, and never as the automatic response to every login wall — logging in normally happens right inside Playwright's own browser window instead (see `skills/browser-navigation/SKILL.md`). This skill is reserved for two narrower cases:

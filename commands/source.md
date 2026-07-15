@@ -1,7 +1,7 @@
 ---
 description: Discover relevant job postings from user-specified sites, keywords, roles, and locations
 argument-hint: "[sites...] [--keywords <k>] [--location <loc>]"
-allowed-tools: Task, Read, Write, Glob, Grep
+allowed-tools: Task, Read, Write, Edit, Glob, Grep, mcp__playwright__*, mcp__claude-in-chrome__*
 ---
 
 # /nemohire:source — Find Jobs
@@ -16,7 +16,7 @@ Every path below is relative to **the project root — the directory that contai
 
 1. **Require identity.** `Read`/`Glob` `./.claude/nemohire/identity/profile.md` — if missing or still placeholder content, point to `/nemohire:init`.
 2. **Collect inputs.** Use arguments if given; otherwise ask for target sites/boards, keywords, roles, and locations — falling back to `./.claude/nemohire/identity/job-preferences.md` and `location-preferences.md` for defaults.
-3. **Dispatch `job-source-agent`** with those inputs. It handles browsing (see `skills/browser-navigation/SKILL.md` for the tool order), extraction, deduplication, and appends new rows/details files to the ledger itself — see `templates/tracker/jobs-ledger-schema.md`.
+3. **Dispatch `job-source-agent`** with those inputs. It handles browsing (see `skills/browser-navigation/SKILL.md` for the tool order), extraction, deduplication, and appends new rows to the ledger itself — one row per posting, nothing under `jobs/details/` yet — see `templates/tracker/jobs-ledger-schema.md`.
 4. **Report** the short count summary it returns: new postings, duplicates skipped, sites attempted, sites that needed the Chrome Connector.
 
 ## Model

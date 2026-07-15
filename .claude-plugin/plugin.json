@@ -1,7 +1,7 @@
 {
   "name": "nemohire",
   "version": "1.0.0",
-  "description": "AI-powered hiring copilot: builds a persistent professional identity, sources jobs (or takes a jobs file directly), and applies to them — in your own voice, submitted automatically once every question is answered. A single apply-agent handles each job start to finish (browse, write, fill, submit, track locally); apply-batch-agent runs jobs in bounded batches so token cost doesn't compound across a long run, checkpointing every finished job so an interrupted run can resume with /nemohire:continue. Notion sync and email sync are separate, on-demand commands, never automatic.",
+  "description": "AI-powered hiring copilot: builds a persistent professional identity, sources jobs (or takes a jobs file directly), and applies to them — in your own voice, submitted automatically once every question is answered. A single apply-agent handles each job start to finish (browse, write, fill, submit, track locally), dispatched directly one job at a time and checkpointed immediately, so an interrupted run can resume with /nemohire:continue. Notion sync and email sync are separate, on-demand commands, never automatic.",
   "author": {
     "name": "Nemous"
   },

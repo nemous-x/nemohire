@@ -16,8 +16,8 @@ This file is created by `/nemohire:init` under `./.claude/nemohire/config.md` in
 ## Paths
 - Identity: `./.claude/nemohire/identity/`
 - Jobs ledger (one line per job — see `templates/tracker/jobs-ledger-schema.md`): `./.claude/nemohire/jobs/jobs.jsonl`
-- Per-job details (one file per job): `./.claude/nemohire/jobs/details/<id>.md`
-- Tailored resumes (only if per-job tailoring is on): `./.claude/nemohire/jobs/resumes/<id>.<ext>`
+- Per-job details (one file per job, created only once apply-agent finishes that job): `./.claude/nemohire/jobs/details/<seq>-<id>.md`
+- Tailored resumes (only if per-job tailoring is on): `./.claude/nemohire/jobs/resumes/<seq>-<id>.<ext>`
 - Browser fallback memory: `./.claude/nemohire/browser-fallback-sites.json`
 - Tracker: `./.claude/nemohire/tracker/`
 - Emails: `./.claude/nemohire/emails/`

@@ -6,7 +6,7 @@ allowed-tools: Task, Read, Write, Edit, Glob, Grep, WebFetch, mcp__playwright__*
 
 # /nemohire:continue — Resume an Interrupted Apply Run
 
-A `/nemohire:apply` run can stop partway — a needs_input, a failure, an error, the end of one batch with more still queued. This command finds every job still `"st":"queued"` in the ledger and keeps going, using the exact same logic `/nemohire:apply` uses (see `agents/apply-batch-agent.md`, `agents/apply-agent.md`, `templates/tracker/jobs-ledger-schema.md`) — it doesn't reimplement anything, and there's no separate run-state file to reconcile: a row's `st` value is the entire resumability record.
+A `/nemohire:apply` run can stop partway — a needs_input, a failure, an error, the session ending with more still queued. This command finds every job still `"st":"queued"` in the ledger and keeps going, using the exact same logic `/nemohire:apply` uses (see `agents/apply-agent.md`, `templates/tracker/jobs-ledger-schema.md`) — it doesn't reimplement anything, and there's no separate run-state file to reconcile: a row's `st` value is the entire resumability record.
 
 ## Path resolution
 
@@ -20,9 +20,11 @@ Every path below is relative to **the project root — the directory that contai
 ## What it does
 
 1. **Find queued rows.** `Grep` `jobs.jsonl` for `"st":"queued"`. Anything already terminal — submitted, failed, needs_input, or manual — is left alone; none of those are silently retried. A plain `/nemohire:apply` run against a specific job, once whatever was missing is resolved, is how you retry one.
-2. **Tell the user what's resuming** — how many jobs are queued, how many batches that is at the current `--batch-size` (default 5).
-3. **Process in batches, one at a time**, exactly like `/nemohire:apply`: `Grep` for the next `--batch-size` still-`"st":"queued"` rows and dispatch `apply-batch-agent` with just their `{id, application_url}` pairs — reusing rows and details files already minted from the original run, nothing else. Wait for it to fully return before dispatching the next — never two batches in flight together.
+2. **Tell the user what's resuming** — how many jobs are queued, how many chunks that is at the current `--batch-size` (default 5).
+3. **Process jobs one at a time, directly**, exactly like `/nemohire:apply`: `Grep` for the next `--batch-size` still-`"st":"queued"` rows (noting each one's `co`/`role`/`url` from that result), then for each, in order, **dispatch `apply-agent`** with exactly `{id, seq, application_url}` — reusing the row already minted from the original run, nothing else. Wait for it to fully return, then immediately: `Grep`+`Edit` that job's line in `jobs.jsonl` to its terminal `st`, and append/update its row in `./.claude/nemohire/tracker/applications.md` from the `co`/`role`/`url` you already have plus the outcome/note `apply-agent` returned — same as `/nemohire:apply`'s step 4. Do this before moving to the next job — never two dispatches touching the browser at once. Report a short summary after each chunk.
 4. **Close out** once no row is `"st":"queued"` anymore — nothing further to do, every row's terminal `st` is already the record.
+
+If a job comes back `needs_input` naming a missing connector (Chrome Connector or Gmail), it stays queued — resolving it means the user explicitly approving that connector for `apply-agent` (see `commands/apply.md`'s "Browser strategy" section), not something this command retries on its own.
 
 **Never run this alongside another `/nemohire:apply`/`/nemohire:continue` invocation against the same project** — including a scheduled task overlapping a manual run. They'd end up sharing one browser session at the same time.
 

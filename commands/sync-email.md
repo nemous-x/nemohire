@@ -1,6 +1,6 @@
 ---
 description: Read hiring-related emails since the last sync, classify them, and update the local tracker
-allowed-tools: Task, Read, Write, Glob, mcp__gmail__*
+allowed-tools: Task, Read, Write, Edit, Glob, Grep, mcp__gmail__*
 ---
 
 # /nemohire:sync-email — Sync Hiring Emails

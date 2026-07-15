@@ -1,6 +1,6 @@
 # Jobs Ledger Schema
 
-This replaces the old `jobs/sourced.json` + `jobs/run-state.json` + per-job `jobs/cache/<id>/` and `jobs/applied/<id>/` folders with two things: one flat ledger file, and one details file per job. Every NemoHire command and agent that touches job data reads and writes these two things, nothing else.
+Every job lives as one row in a single flat ledger file, plus — once `apply-agent` has actually finished that job — one details file. Every NemoHire command and agent that touches job data reads and writes these two things, nothing else.
 
 ## Why this exists
 
@@ -8,24 +8,24 @@ Scattering one job across up to five separate small files (posting, company cont
 
 ## Path resolution — read this before touching any file
 
-Every path below is relative to **the project root — the directory that contains `.claude/`**. That is always the working directory for `Read`/`Write`/`Edit`/`Bash` calls in this plugin. Never assume `.claude/nemohire/` itself is the working directory, and never assume a bare path like `jobs/jobs.jsonl` resolves correctly on its own — always use the full path starting with `./.claude/nemohire/`. When dispatching another agent (a `Task` call), reference a specific file with `@.claude/nemohire/jobs/jobs.jsonl` or `@.claude/nemohire/jobs/details/<id>.md` in the dispatch instruction — the `@` form is resolved by Claude Code against the project root before the dispatched agent starts reasoning about paths at all, which is the most reliable way to hand off a specific file.
+Every path below is relative to **the project root — the directory that contains `.claude/`**. That is always the working directory for `Read`/`Write`/`Edit`/`Bash` calls in this plugin. Never assume `.claude/nemohire/` itself is the working directory, and never assume a bare path like `jobs/jobs.jsonl` resolves correctly on its own — always use the full path starting with `./.claude/nemohire/`. When dispatching another agent (a `Task` call), reference a specific file with `@.claude/nemohire/jobs/jobs.jsonl` or `@.claude/nemohire/jobs/details/<seq>-<id>.md` in the dispatch instruction — the `@` form is resolved by Claude Code against the project root before the dispatched agent starts reasoning about paths at all, which is the most reliable way to hand off a specific file.
 
-If a file isn't where it's supposed to be at its one deterministic path, that is a real error — report the job `failed` with that detail. **Never fall back to `find` or any other filesystem-wide search.** Every path in this plugin is deterministic from a job's `id`; there is nothing to search for.
+If a file isn't where it's supposed to be at its one deterministic path, that is a real error — report the job `failed` with that detail. **Never fall back to `find` or any other filesystem-wide search.** Every path in this plugin is deterministic from a job's `id`/`seq`; there is nothing to search for. The one exception: a job's details file legitimately doesn't exist yet while its `st` is `new` or `queued` — that's not an error, it's simply not written until `apply-agent` finishes that job (see below).
 
 ## `jobs.jsonl` — the ledger
 
 `./.claude/nemohire/jobs/jobs.jsonl` — one line, one compact JSON object, per job. Never a nested structure; never nice-printed with multi-line formatting. Fields:
 
 ```json
-{"seq":42,"id":"8f3a2c","st":"queued","co":"Acme Inc","role":"Staff Engineer","url":"https://acme.example/apply/123","ref":"./.claude/nemohire/jobs/details/8f3a2c.md","note":"","at":"2026-07-14T10:32:00Z"}
+{"seq":42,"id":"8f3a2c","st":"queued","co":"Acme Inc","role":"Staff Engineer","url":"https://acme.example/apply/123","ref":"./.claude/nemohire/jobs/details/0042-8f3a2c.md","note":"","at":"2026-07-14T10:32:00Z"}
 ```
 
-- `seq` — order added. Informational/display only, not a uniqueness guarantee — `id` is the real key. Computed as (current line count of `jobs.jsonl` at the moment of appending) + 1; never worth a dedicated read just to compute it precisely.
-- `id` — the short unique token this job is keyed by everywhere (same id names its `ref` file).
+- `seq` — order added, zero-padded to 4 digits everywhere it's used in a filename (`0042`, not `42`). Informational/display only, not a uniqueness guarantee — `id` is the real key. Computed as (current line count of `jobs.jsonl` at the moment of appending) + 1; never worth a dedicated read just to compute it precisely.
+- `id` — the short unique token this job is keyed by everywhere (same id names its `ref` file, alongside `seq`).
 - `st` — one field covers status and outcome: `new` (sourced, not yet selected to apply), `queued` (selected, pending), `submitted`, `failed`, `needs_input`, or `manual`. Anything other than `new`/`queued` is a terminal outcome — there's no separate "done" flag to track alongside it.
 - `co`, `role` — company/role, best-effort, for display only.
 - `url` — the URL used to open the application (the application URL if one exists separately from the posting URL, otherwise the posting URL). This is also the dedup key against the tracker.
-- `ref` — full path to this job's details file.
+- `ref` — the deterministic path this job's details file will live at, computed from `seq`+`id` the moment the row is minted. **The file itself doesn't exist yet at that point** — see below. Once `st` reaches a terminal value, `ref` must resolve to a real file; if it doesn't, that's a genuine error.
 - `note` — short reason, only meaningful for `failed`/`needs_input`/`manual`; empty string otherwise.
 - `at` — ISO-8601, last updated.
 
@@ -42,26 +42,26 @@ This returns just the matching lines — never load the whole file into context 
 
 Every update (minting a new row, flipping `new`→`queued`, or writing a terminal outcome) is a single `Edit` call: `old_string` is the row's exact current line, `new_string` is the same line with its changed fields. This is a diff-sized edit regardless of how many thousand rows the file holds. Appending a brand-new row works the same way — anchor `old_string` on whatever the current last line is (known from the append that created it, or from a `Grep` for `"seq":<n>` on the previous highest seq) and append the new line after it.
 
-## `jobs/details/<id>.md` — one file per job
+## `jobs/details/<seq>-<id>.md` — one file per job, created only when that job is done
 
-`./.claude/nemohire/jobs/details/<id>.md` replaces the old `jobs/cache/<id>/posting.md` + `company-context.md` + `jobs/applied/<id>/cover-letter.md` + `application-record.md` — one file, written in sections:
+Filename is `<seq>-<id>.md`, zero-padded seq first (e.g. `0042-8f3a2c.md`) — sorts naturally in a plain file listing. **This file does not exist while a job is `new` or `queued`.** `apply-agent` creates it exactly once, in a single write, right at the end of its own dispatch, whatever the outcome — submitted, failed, needs_input, or manual. Nothing pre-seeds it: no Posting-only stub at source time, no placeholder at mint time. This keeps `jobs/details/` an honest reflection of what's actually been worked — a file appears there when, and only when, `apply-agent` has finished with that job.
 
 ```markdown
 # <id> — <role> @ <company>
 
 ## Posting
-<verbatim description, requirements, posting URL, application URL — written once, at source/mint time>
+<what apply-agent found on the actual application page — title, company, description/requirements as encountered, posting URL, application URL. Brief or absent with a note if the page never loaded at all.>
 
 ## Company context
 <short highlight, capped ~40 lines — written by apply-agent while browsing>
 
 ## Cover letter
-<written by apply-agent, in the user's voice>
+<written by apply-agent, in the user's voice — omit if the job never reached this step>
 
 ## Answers
 Q: <question text>
 A: <answer given>
-(repeat per custom question — omit this section entirely if the form had none)
+(repeat per custom question — omit this section entirely if the form had none, or the job never reached this step)
 
 ## Application record
 - Files uploaded: <list>
@@ -70,20 +70,19 @@ A: <answer given>
 - Note: <if any>
 ```
 
-`apply-agent` composes the Company context / Cover letter / Answers / Application record sections in memory during its one dispatch and writes this file **once**, near the end of the job, rather than incrementally across several separate writes.
+`apply-agent` reads the actual posting itself by opening `application_url` and browsing it — that's already required to fill the form, so there's no separate posting extract to keep in sync. It composes every section above in memory as it works the job, then writes this file **once**, at the very end, rather than incrementally across several separate writes.
 
-**Exception — tailored resume.** If the user has per-job resume tailoring on (`identity/documents.md`'s "Tailor per job: yes"), the tailored resume is a real document, not markdown prose, and stays its own file: `./.claude/nemohire/jobs/resumes/<id>.<ext>`. When tailoring is off (the default), there's no per-job resume file at all — the base resume path from `identity/documents.md` is used directly.
+**Exception — tailored resume.** If the user has per-job resume tailoring on (`identity/documents.md`'s "Tailor per job: yes"), the tailored resume is a real document, not markdown prose, and stays its own file: `./.claude/nemohire/jobs/resumes/<seq>-<id>.<ext>`. When tailoring is off (the default), there's no per-job resume file at all — the base resume path from `identity/documents.md` is used directly.
 
 ## Who writes what
 
-- **Sourcing** (`job-source-agent`, via `/nemohire:source`): for each posting found, appends one row to `jobs.jsonl` with `st:"new"` and writes one `jobs/details/<id>.md` with just the Posting section filled in. Two writes per posting — never a growing array file rewritten on every append.
-- **`/nemohire:apply`** (the top-level command, directly, not a subagent): reads rows with `st:"new"` (or an externally supplied `--jobs-file`, minting fresh rows for entries not already in the ledger), lets the user pick, and flips selected rows to `st:"queued"` — a single-line `Edit` per row. This is the only place ids get minted for jobs that didn't come through `/nemohire:source`.
-- **`apply-batch-agent`**: dispatches `apply-agent` with just `{id, application_url}`, and on each return, edits that job's ledger row to its terminal `st` (and `note` if relevant) — one `Edit` call, immediately, per job.
-- **`apply-agent`**: reads `jobs/details/<id>.md` for the posting, writes the rest of that same file once near the end of the job, and never touches the ledger row directly — that's `apply-batch-agent`'s job, right after `apply-agent` returns.
+- **Sourcing** (`job-source-agent`, via `/nemohire:source`): for each posting found, appends one row to `jobs.jsonl` with `st:"new"` — company, role, and both URLs, plus the precomputed `ref` path. One write per posting, nothing else; no details file, since nothing has been applied to yet.
+- **`/nemohire:apply`/`/nemohire:continue`** (the top-level commands, directly, not a subagent): read rows with `st:"new"` (or an externally supplied `--jobs-file`, minting fresh rows for entries not already in the ledger), let the user pick, and flip selected rows to `st:"queued"` — a single-line `Edit` per row. This is the only place ids get minted for jobs that didn't come through `/nemohire:source`. They also dispatch `apply-agent` directly, one job at a time, and immediately after each return, both edit that job's ledger row to its terminal `st` (and `note` if relevant) **and** append/update its row in `tracker/applications.md` — using the `co`/`role`/`url` they already have from the ledger row plus the outcome/note `apply-agent`'s output contract returns. There's no intermediate agent doing either of these on their behalf. Neither command ever touches `jobs/details/`.
+- **`apply-agent`**: browses `application_url` itself for the posting/form content — nothing to read from `jobs/details/` beforehand, since nothing's written there yet. Writes `jobs/details/<seq>-<id>.md` exactly once, at the end of its own dispatch. Never touches the ledger row or `tracker/applications.md` directly — both are whichever top-level command dispatched it, right after it returns.
 
 ## Resuming
 
-`/nemohire:continue` is the same operation as `/nemohire:apply`, just without picking new jobs first: `Grep` `jobs.jsonl` for `"st":"queued"`, batch them, dispatch `apply-batch-agent` per batch. There's no separate run/batch bookkeeping file — a row's `st` value is the entire resumability record. A `failed`/`needs_input`/`manual` row is never silently retried by `/nemohire:continue`; a fresh `/nemohire:apply` against that specific job (once whatever was missing is resolved) is how you retry one.
+`/nemohire:continue` is the same operation as `/nemohire:apply`, just without picking new jobs first: `Grep` `jobs.jsonl` for `"st":"queued"`, and dispatch `apply-agent` directly, one job at a time, checkpointing each as it returns. There's no separate run/batch bookkeeping file — a row's `st` value is the entire resumability record. A `failed`/`needs_input`/`manual` row is never silently retried by `/nemohire:continue`; a fresh `/nemohire:apply` against that specific job (once whatever was missing is resolved) is how you retry one.
 
 ## Dedup against the tracker
 
